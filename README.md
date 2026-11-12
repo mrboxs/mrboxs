@@ -9,6 +9,15 @@ bun install
 bun --bun run dev
 ```
 
+## Editor Setup (TSRS)
+
+Run `vp install` before opening the project so both editors can use the TSRS version pinned in the lockfile.
+
+- **VS Code:** Install the recommended [TypeScript 7 extension](https://marketplace.visualstudio.com/items?itemName=TypeScriptTeam.native-preview). The workspace points its native SDK at `node_modules/tsrs/tsdk` on macOS/Linux. Trust the workspace and allow the workspace SDK when prompted, then run **TypeScript 7: Restart Server** or reload the window.
+- **Zed:** Install [TypeScript Language Server](https://zed.dev/extensions/tsgo) (extension ID `tsgo`). The workspace configures its `typescript-ls` server to run `node_modules/.bin/tsrs --lsp --stdio` for JavaScript, JSX, TypeScript, and TSX, and disables `vtsls` and `typescript-language-server` for those languages. Run **editor: restart language server** after changing the settings.
+
+Oxc remains the formatter and linter in both editors. See the [TSRS language server documentation](https://github.com/oxc-project/tsrs/blob/main/docs/LSP.md) for platform-specific setup and troubleshooting.
+
 # Building For Production
 
 To build this application for production:
