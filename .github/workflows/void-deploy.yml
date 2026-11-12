@@ -23,6 +23,8 @@ jobs:
       - run: vp install --frozen-lockfile
       - name: Check
         run: vp run check
+      - name: Test
+        run: vp run test
       - name: Deploy
         env:
           # Add this scoped token at Settings → Secrets and variables → Actions.

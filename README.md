@@ -67,7 +67,7 @@ The build command clears `CODEX_TOOL_CALL_ID` for its child process: Vite+ 1.5.1
 
 Vitest enables the React plugin without starting Void, TanStack Start, or devtools servers. These unit tests run in Node.js; Worker bindings need mocks or a separate runtime test setup.
 
-Use `vp run --no-cache <name>` to force an execution, `vp run -v <name>` for cache details, and `vp cache clean` to clear the task cache. A failed task is not cached. The repository currently has no test files; `test` and `verify` report that failure instead of treating missing tests as success.
+Use `vp run --no-cache <name>` to force an execution, `vp run -v <name>` for cache details, and `vp cache clean` to clear the task cache. A failed task is not cached. Button regression tests cover state-dependent class-name callbacks and string overrides; `test` and `verify` run them through Vitest.
 
 ## Styling
 
@@ -92,7 +92,7 @@ vp run deploy
 
 This task explicitly selects `--platform cloudflare`, including on a fresh clone without `.void/project.json`. Void builds the Worker, provisions required resources, and publishes it. No separate build step is needed. To inspect the production build locally, use `vp run preview`.
 
-`.github/workflows/void-deploy.yml` installs Vite+ and the pinned Node.js/Bun versions, installs frozen dependencies, runs `check`, then deploys pushes to `main`. Deployments are serialized so a running release isn't cancelled midway through provisioning or publishing. There are currently no unit tests, so this workflow does not run the failing no-tests task.
+`.github/workflows/void-deploy.yml` installs Vite+ and the pinned Node.js/Bun versions, installs frozen dependencies, runs `check` and `test`, then deploys pushes to `main`. Deployments are serialized so a running release isn't cancelled midway through provisioning or publishing.
 
 Add `CLOUDFLARE_API_TOKEN` to the repository's Actions secrets. The token needs Workers Scripts edit permission and access to any resources the app uses or provisions. Set `CLOUDFLARE_WORKERS_SUBDOMAIN` as an Actions variable if workers.dev readiness needs the account subdomain. The workflow also accepts `DATABASE_URL` for PostgreSQL/MySQL and `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` for Access-protected readiness checks when those features are used.
 
