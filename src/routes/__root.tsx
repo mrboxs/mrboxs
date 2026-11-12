@@ -7,9 +7,9 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-
-import appCss from '../styles.css?url'
+import { ThemeProvider } from '#/components/theme-provider'
+import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
+import appCss from '#/styles.css?url'
 
 interface MyRouterContext {
 	queryClient: QueryClient
@@ -41,12 +41,23 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
+		<html
+			lang="en"
+			className="scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent scrollbar-gutter-stable selection:bg-primary selection:text-primary-foreground"
+			suppressHydrationWarning
+		>
 			<head>
 				<HeadContent />
 			</head>
 			<body>
-				{children}
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					disableTransitionOnChange
+					storageKey="theme"
+				>
+					{children}
+				</ThemeProvider>
 				<TanStackDevtools
 					config={{
 						position: 'bottom-right',

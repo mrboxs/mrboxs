@@ -1,4 +1,4 @@
-Welcome to your new TanStack Start app!
+TanStack Start app with Void on Cloudflare Workers, using Vite+ and Bun.
 
 # Getting Started
 
@@ -16,6 +16,8 @@ Then, from the project directory:
 vp install
 vp run dev
 ```
+
+Vite+ uses Node.js from `.node-version` and Bun from `devEngines.packageManager` in `package.json`. Installation configures Git hooks and runs `void prepare` to generate the ignored `.void/tsconfig.json` and Void types. The Void CLI requires Node.js 24.22+ or 26.12+.
 
 ## Editor Setup (TSRS)
 
@@ -38,29 +40,34 @@ vp run build
 
 Run project tasks with `vp run <name>`. Built-in commands such as `vp build` and `vp check` run their tools directly and bypass these task definitions and their cache.
 
-| Task               | Purpose                                                 | Cache                                                       |
-| ------------------ | ------------------------------------------------------- | ----------------------------------------------------------- |
-| `vp run dev`       | Start development on port 3000                          | Off                                                         |
-| `vp run build`     | Build the client and Nitro server; generate route types | Project inputs; production output and generated route types |
-| `vp run preview`   | Build if needed, then preview the production output     | Server off; build cached                                    |
-| `vp run format`    | Format source files in place                            | Off                                                         |
-| `vp run lint`      | Lint and type-check through Oxlint                      | Automatic                                                   |
-| `vp run check`     | Check formatting, lint, and types                       | Automatic                                                   |
-| `vp run typecheck` | Run the project's TSRS compiler only                    | Automatic inputs; no restored outputs                       |
-| `vp run test`      | Run Vitest; supports forwarded options such as `watch`  | Off                                                         |
-| `vp run verify`    | Run build, check, and test in sequence                  | Reuses each task's policy                                   |
+| Task               | Purpose                                                | Cache                                             |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------------- |
+| `vp run dev`       | Start development on port 3000                         | Off                                               |
+| `vp run build`     | Build the client and Cloudflare Worker; generate types | Project inputs; Worker output and generated types |
+| `vp run deploy`    | Build and deploy through Void to Cloudflare Workers    | Off                                               |
+| `vp run preview`   | Build if needed, then preview the production output    | Server off; build cached                          |
+| `vp run format`    | Format source files in place                           | Off                                               |
+| `vp run lint`      | Lint and type-check through Oxlint                     | Automatic                                         |
+| `vp run check`     | Check formatting, lint, and types                      | Automatic                                         |
+| `vp run typecheck` | Run the project's TSRS compiler only                   | Automatic inputs; no restored outputs             |
+| `vp run types`     | Regenerate Void types and TypeScript configuration     | Off                                               |
+| `vp run test`      | Run Vitest; supports forwarded options such as `watch` | Off                                               |
+| `vp run verify`    | Run build, check, and test in sequence                 | Reuses each task's policy                         |
+| `vp run doctor`    | Run the installed React Doctor version                 | Off                                               |
 
 `verify` builds first because TanStack generates route types during development/build. `check` already includes type-checking, so it does not run the standalone TSRS task again. The old `generate-routes` script was a full production build; use `vp run build` or `vp run dev` to generate routes.
 
-The build task fingerprints project files, including configuration, the lockfile, and `.env*`, while excluding generated files and dependencies in `node_modules`. On a cache hit, it restores `.output/` for the default build or `dist/` for the `cloudflare-pages` and `cloudflare-pages-static` presets, plus `src/routeTree.gen.ts` in either case. This avoids Nitro's read/write artifacts and directory probes invalidating the cache when output is removed. Dependency versions are tracked through the lockfile; run `vp install` after changing dependencies.
+Task definitions live in `vite.config.ts`; `package.json` keeps only the `prepare` lifecycle script and the `doctor` command. Vite+ rejects duplicate task/script names, so do not add a second `dev` or `build` script.
 
-Vite+ tracks `VITE_*` and `NODE_ENV` automatically. The build task additionally fingerprints Nitro environment settings, including `NITRO_PRESET`, its `SERVER_PRESET` fallback, and the compatibility date. The TSRS task fingerprints `TSRS_*` settings. Package-manager lifecycle scripts such as `prepare` remain uncached by default.
+The build task fingerprints project files, including configuration, `void.lock.json`, the dependency lockfile, and `.env*`, while excluding generated files and dependencies. On a cache hit, it restores `dist/client/`, `dist/server/`, `.cloudflare/output/`, generated Void configuration and declarations, the preview pointer, and `src/routeTree.gen.ts`. It excludes local databases, login files, and deployment state from cached outputs. Run `vp install` after changing dependencies.
+
+Vite+ tracks `VITE_*` and `NODE_ENV` automatically. The build task also fingerprints `VOID_*` and `CLOUDFLARE_*`, excluding `CLOUDFLARE_API_TOKEN`. The TSRS task fingerprints `TSRS_*`. The `check`, `lint`, and `typecheck` tasks run `types` first so Void declarations stay current. Package-manager lifecycle scripts such as `prepare` remain uncached by default.
 
 The build command clears `CODEX_TOOL_CALL_ID` for its child process: Vite+ 1.5.1 otherwise fingerprints this per-invocation agent metadata and unnecessarily rebuilds between agent commands.
 
-Vitest enables the React plugin without starting Nitro, TanStack Start, or devtools servers. This keeps unit tests from running the application's server lifecycle.
+Vitest enables the React plugin without starting Void, TanStack Start, or devtools servers. These unit tests run in Node.js; Worker bindings need mocks or a separate runtime test setup.
 
-Use `vp run --no-cache <name>` to force an execution, `vp run -v <name>` for cache details, and `vp cache clean` to clear the task cache. A failed task is not cached. The repository currently has no test files; `test` and `verify` report that failure instead of treating missing tests as success.
+Use `vp run --no-cache <name>` to force an execution, `vp run -v <name>` for cache details, and `vp cache clean` to clear the task cache. A failed task is not cached. Button regression tests cover state-dependent class-name callbacks and string overrides; `test` and `verify` run them through Vitest.
 
 ## Styling
 
@@ -75,18 +82,21 @@ If you prefer not to use Tailwind CSS:
 3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
 4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
 
-## Deploy with Nitro
+## Deploy to Cloudflare Workers
 
-This project uses Nitro as a generic server adapter, so it can run on any Node-compatible host.
+Void provides the Cloudflare adapter. `voidPlugin()` must precede `tanstackStart()` in `vite.config.ts`. Worker settings live in `void.config.ts`; commit `void.lock.json` to preserve the selected account and resource identities. Generated `.void-wrangler.jsonc`, `.cloudflare/`, `.void/`, and `.wrangler/` stay ignored.
 
 ```bash
-vp run build
-node .output/server/index.mjs
+vp run deploy
 ```
 
-The build output is a self-contained Node server. To deploy, push the `.output/` directory to your host (Render, Fly.io, your own VPS, etc.) and run the server command above.
+This task explicitly selects `--platform cloudflare`, including on a fresh clone without `.void/project.json`. Void builds the Worker, provisions required resources, and publishes it. No separate build step is needed. To inspect the production build locally, use `vp run preview`.
 
-For host-specific presets (Vercel, Netlify, Cloudflare, AWS Lambda, etc.) and tuning, see https://v3.nitro.build/deploy.
+`.github/workflows/void-deploy.yml` installs Vite+ and the pinned Node.js/Bun versions, installs frozen dependencies, runs `check` and `test`, then deploys pushes to `main`. Deployments are serialized so a running release isn't cancelled midway through provisioning or publishing.
+
+Add `CLOUDFLARE_API_TOKEN` to the repository's Actions secrets. The token needs Workers Scripts edit permission and access to any resources the app uses or provisions. Set `CLOUDFLARE_WORKERS_SUBDOMAIN` as an Actions variable if workers.dev readiness needs the account subdomain. The workflow also accepts `DATABASE_URL` for PostgreSQL/MySQL and `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` for Access-protected readiness checks when those features are used.
+
+For production server values, declare keys in `env.ts` and set secrets with `vpx void secret put <NAME>`. Local `.env` files are not uploaded. See [Void's Cloudflare guide](https://void.cloud/integrations/cloudflare) for deployment, readiness, and token permissions.
 
 ## Routing
 
