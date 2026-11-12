@@ -95,6 +95,12 @@ const config = defineConfig({
 			],
 			internalPattern: ['#/', '@/'],
 		},
+		sortTailwindcss: {
+			stylesheet: './src/styles.css',
+			functions: ['clsx', 'cn', 'cva', 'tw'],
+			preserveWhitespace: false,
+			preserveDuplicates: false,
+		},
 	},
 	lint: {
 		ignorePatterns,
