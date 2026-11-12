@@ -8,7 +8,7 @@ import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react'
 
 import tailwindcss from '@tailwindcss/vite'
 
-import { nitro } from 'nitro/vite'
+import { voidPlugin } from 'void'
 
 const ignorePatterns = [
 	'**/node_modules/**',
@@ -22,12 +22,12 @@ const ignorePatterns = [
 	'**/.tanstack/**',
 	'**/.vite/**',
 	'**/.wrangler/**',
+	'**/.void/**',
+	'**/.cloudflare/**',
+	'**/.void-wrangler.jsonc',
+	'**/*.tsbuildinfo',
 	'**/routeTree.gen.ts',
 ]
-
-const nitroPreset = (
-	[process.env.NITRO_PRESET, process.env.SERVER_PRESET].find(Boolean) ?? ''
-).replaceAll('_', '-')
 
 const lintPlugins = [
 	'typescript',
@@ -79,7 +79,7 @@ const config = defineConfig({
 						'@tailwindcss/**',
 					],
 				},
-				{ groupName: 'nitro', elementNamePattern: ['nitro', 'nitro/**'] },
+				{ groupName: 'void', elementNamePattern: ['void', 'void/**'] },
 				{ groupName: 'local-libs', elementNamePattern: ['#/**', '@/**'] },
 			],
 			groups: [
@@ -88,7 +88,7 @@ const config = defineConfig({
 				'react',
 				'vite-tooling',
 				'tailwind',
-				'nitro',
+				'void',
 				'builtin',
 				'external',
 				'local-libs',
@@ -336,7 +336,7 @@ const config = defineConfig({
 
 		return [
 			devtools(),
-			nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+			voidPlugin(),
 			tailwindcss(),
 			tanstackStart({
 				router: {
@@ -354,13 +354,8 @@ const config = defineConfig({
 				// Vite+ 1.5.1 otherwise fingerprints the agent's per-command ID.
 				command: 'CODEX_TOOL_CALL_ID= vp build',
 				cache: {
-					env: [
-						'NITRO_*',
-						'SERVER_PRESET',
-						'COMPATIBILITY_DATE',
-						'SERVER_COMPATIBILITY_DATE',
-					],
-					// Track project files, not Nitro's read/write artifacts or directory probes.
+					env: ['VOID_*', 'CLOUDFLARE_*', '!CLOUDFLARE_API_TOKEN'],
+					// Generated runtime state must not invalidate the build cache.
 					input: [
 						'**/*',
 						'.env',
@@ -369,25 +364,37 @@ const config = defineConfig({
 						...ignorePatterns.map((pattern) => `!${pattern}`),
 					],
 					output: [
-						['cloudflare-pages', 'cloudflare-pages-static'].includes(
-							nitroPreset
-						)
-							? 'dist/**'
-							: '.output/**',
+						'dist/client/**',
+						'dist/server/**',
+						'.cloudflare/output/**',
+						'.void-wrangler.jsonc',
+						'.void/preview-deploy-config.json',
+						'.void/tsconfig.json',
+						'.void/*.d.ts',
 						'src/routeTree.gen.ts',
 					],
 				},
 			},
-			check: 'vp check',
+			check: {
+				command: 'vp check',
+				dependsOn: ['types'],
+			},
 			dev: {
 				command: 'vp dev --port 3000',
+				cache: false,
+			},
+			deploy: {
+				command: 'vpx void deploy --platform cloudflare',
 				cache: false,
 			},
 			format: {
 				command: 'vp fmt',
 				cache: false,
 			},
-			lint: 'vp lint',
+			lint: {
+				command: 'vp lint',
+				dependsOn: ['types'],
+			},
 			preview: {
 				command: 'vp preview',
 				dependsOn: ['build'],
@@ -399,10 +406,15 @@ const config = defineConfig({
 			},
 			typecheck: {
 				command: 'tsrs --noEmit --project tsconfig.json',
+				dependsOn: ['types'],
 				cache: {
 					env: ['TSRS_*'],
 					output: [],
 				},
+			},
+			types: {
+				command: 'vpx void prepare',
+				cache: false,
 			},
 			verify: {
 				// Build generates the route types needed by check and test.

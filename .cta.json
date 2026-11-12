@@ -14,5 +14,5 @@
 	"intent": true,
 	"version": 1,
 	"framework": "react",
-	"chosenAddOns": ["nitro", "tanstack-query", "compiler"]
+	"chosenAddOns": ["tanstack-query", "compiler"]
 }
