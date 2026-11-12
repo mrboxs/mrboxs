@@ -25,6 +25,10 @@ const ignorePatterns = [
 	'**/routeTree.gen.ts',
 ]
 
+const nitroPreset = (
+	[process.env.NITRO_PRESET, process.env.SERVER_PRESET].find(Boolean) ?? ''
+).replaceAll('_', '-')
+
 const lintPlugins = [
 	'typescript',
 	'unicorn',
@@ -333,7 +337,12 @@ const config = defineConfig({
 				// Vite+ 1.5.1 otherwise fingerprints the agent's per-command ID.
 				command: 'CODEX_TOOL_CALL_ID= vp build',
 				cache: {
-					env: ['NITRO_*', 'COMPATIBILITY_DATE', 'SERVER_COMPATIBILITY_DATE'],
+					env: [
+						'NITRO_*',
+						'SERVER_PRESET',
+						'COMPATIBILITY_DATE',
+						'SERVER_COMPATIBILITY_DATE',
+					],
 					// Track project files, not Nitro's read/write artifacts or directory probes.
 					input: [
 						'**/*',
@@ -342,7 +351,14 @@ const config = defineConfig({
 						'!.git/**',
 						...ignorePatterns.map((pattern) => `!${pattern}`),
 					],
-					output: ['.output/**', 'src/routeTree.gen.ts'],
+					output: [
+						['cloudflare-pages', 'cloudflare-pages-static'].includes(
+							nitroPreset
+						)
+							? 'dist/**'
+							: '.output/**',
+						'src/routeTree.gen.ts',
+					],
 				},
 			},
 			check: 'vp check',

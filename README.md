@@ -2,7 +2,15 @@ Welcome to your new TanStack Start app!
 
 # Getting Started
 
-To run this application:
+Install the [global Vite+ CLI](https://viteplus.dev/guide/#install-vp-globally) before running project commands. On macOS or Linux:
+
+```bash
+curl -fsSL https://vite.plus | bash
+```
+
+For Windows, use the PowerShell installer in the linked installation guide. Open a new terminal after installation and run `vp help` to verify that the CLI is available.
+
+Then, from the project directory:
 
 ```bash
 vp install
@@ -44,9 +52,9 @@ Run project tasks with `vp run <name>`. Built-in commands such as `vp build` and
 
 `verify` builds first because TanStack generates route types during development/build. `check` already includes type-checking, so it does not run the standalone TSRS task again. The old `generate-routes` script was a full production build; use `vp run build` or `vp run dev` to generate routes.
 
-The build task fingerprints project files, including configuration, the lockfile, and `.env*`, while excluding generated files and dependencies in `node_modules`. It restores `.output/` and `src/routeTree.gen.ts` on a cache hit. This avoids Nitro's read/write artifacts and directory probes invalidating the cache when output is removed. Dependency versions are tracked through the lockfile; run `vp install` after changing dependencies.
+The build task fingerprints project files, including configuration, the lockfile, and `.env*`, while excluding generated files and dependencies in `node_modules`. On a cache hit, it restores `.output/` for the default build or `dist/` for the `cloudflare-pages` and `cloudflare-pages-static` presets, plus `src/routeTree.gen.ts` in either case. This avoids Nitro's read/write artifacts and directory probes invalidating the cache when output is removed. Dependency versions are tracked through the lockfile; run `vp install` after changing dependencies.
 
-Vite+ tracks `VITE_*` and `NODE_ENV` automatically. The build task additionally fingerprints Nitro environment settings, including its preset and compatibility date. The TSRS task fingerprints `TSRS_*` settings. Package-manager lifecycle scripts such as `prepare` remain uncached by default.
+Vite+ tracks `VITE_*` and `NODE_ENV` automatically. The build task additionally fingerprints Nitro environment settings, including `NITRO_PRESET`, its `SERVER_PRESET` fallback, and the compatibility date. The TSRS task fingerprints `TSRS_*` settings. Package-manager lifecycle scripts such as `prepare` remain uncached by default.
 
 The build command clears `CODEX_TOOL_CALL_ID` for its child process: Vite+ 1.5.1 otherwise fingerprints this per-invocation agent metadata and unnecessarily rebuilds between agent commands.
 
