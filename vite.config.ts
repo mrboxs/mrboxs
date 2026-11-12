@@ -132,10 +132,24 @@ const config = defineConfig({
 				name: 'eslint-tanstack-query',
 				specifier: '@tanstack/eslint-plugin-query',
 			},
+			{
+				name: 'react-doctor',
+				specifier: 'oxlint-plugin-react-doctor',
+			},
 		],
 		rules: {
 			// Vite+
 			'vite-plus/prefer-vite-plus-imports': 'error',
+
+			// React Doctor: checks not covered by the native React rules below.
+			'react-doctor/effect-needs-cleanup': 'error',
+			'react-doctor/no-default-props': 'error',
+			'react-doctor/no-derived-useState': 'warn',
+			'react-doctor/no-effect-event-handler': 'warn',
+			'react-doctor/no-fetch-in-effect': 'warn',
+			'react-doctor/no-giant-component': 'warn',
+			'react-doctor/no-prop-types': 'error',
+			'react-doctor/no-react-dom-deprecated-apis': 'error',
 
 			// TanStack Router and Query
 			'eslint-tanstack-query/exhaustive-deps': 'error',
@@ -154,6 +168,9 @@ const config = defineConfig({
 			'react-hooks-js/gating': 'error',
 			'react/exhaustive-deps': 'warn',
 			'react/jsx-fragments': ['error', 'syntax'],
+			'react/jsx-max-depth': ['warn', { max: 8 }],
+			'react/jsx-no-useless-fragment': ['warn', { allowExpressions: true }],
+			'react/no-array-index-key': 'warn',
 			'react/no-unknown-property': 'error',
 			'react/rules-of-hooks': 'error',
 			'react/set-state-in-effect': 'warn',
