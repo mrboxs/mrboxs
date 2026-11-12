@@ -304,19 +304,73 @@ const config = defineConfig({
 		},
 	},
 	resolve: { tsconfigPaths: true },
-	plugins: lazyPlugins(() => [
-		devtools(),
-		nitro({ rollupConfig: { external: [/^@sentry\//] } }),
-		tailwindcss(),
-		tanstackStart({
-			router: {
-				quoteStyle: 'double',
-				semicolons: true,
+	plugins: lazyPlugins(() => {
+		if (process.env.VITEST) return [viteReact()]
+
+		return [
+			devtools(),
+			nitro({ rollupConfig: { external: [/^@sentry\//] } }),
+			tailwindcss(),
+			tanstackStart({
+				router: {
+					quoteStyle: 'double',
+					semicolons: true,
+				},
+			}),
+			viteReact(),
+			babel({ presets: [reactCompilerPreset()] }),
+		]
+	}),
+	run: {
+		tasks: {
+			build: {
+				// Vite+ 1.5.1 otherwise fingerprints the agent's per-command ID.
+				command: 'CODEX_TOOL_CALL_ID= vp build',
+				cache: {
+					env: ['NITRO_*', 'COMPATIBILITY_DATE', 'SERVER_COMPATIBILITY_DATE'],
+					// Track project files, not Nitro's read/write artifacts or directory probes.
+					input: [
+						'**/*',
+						'.env',
+						'.env.*',
+						'!.git/**',
+						...ignorePatterns.map((pattern) => `!${pattern}`),
+					],
+					output: ['.output/**', 'src/routeTree.gen.ts'],
+				},
 			},
-		}),
-		viteReact(),
-		babel({ presets: [reactCompilerPreset()] }),
-	]),
+			check: 'vp check',
+			dev: {
+				command: 'vp dev --port 3000',
+				cache: false,
+			},
+			format: {
+				command: 'vp fmt',
+				cache: false,
+			},
+			lint: 'vp lint',
+			preview: {
+				command: 'vp preview',
+				dependsOn: ['build'],
+				cache: false,
+			},
+			test: {
+				command: 'vp test',
+				cache: false,
+			},
+			typecheck: {
+				command: 'tsrs --noEmit --project tsconfig.json',
+				cache: {
+					env: ['TSRS_*'],
+					output: [],
+				},
+			},
+			verify: {
+				// Build generates the route types needed by check and test.
+				command: ['vp run build', 'vp run check', 'vp run test'],
+			},
+		},
+	},
 })
 
 export default config

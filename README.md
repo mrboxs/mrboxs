@@ -5,8 +5,8 @@ Welcome to your new TanStack Start app!
 To run this application:
 
 ```bash
-bun install
-bun --bun run dev
+vp install
+vp run dev
 ```
 
 ## Editor Setup (TSRS)
@@ -23,8 +23,36 @@ Oxc remains the formatter and linter in both editors. See the [TSRS language ser
 To build this application for production:
 
 ```bash
-bun --bun run build
+vp run build
 ```
+
+## Vite+ Tasks
+
+Run project tasks with `vp run <name>`. Built-in commands such as `vp build` and `vp check` run their tools directly and bypass these task definitions and their cache.
+
+| Task               | Purpose                                                 | Cache                                                       |
+| ------------------ | ------------------------------------------------------- | ----------------------------------------------------------- |
+| `vp run dev`       | Start development on port 3000                          | Off                                                         |
+| `vp run build`     | Build the client and Nitro server; generate route types | Project inputs; production output and generated route types |
+| `vp run preview`   | Build if needed, then preview the production output     | Server off; build cached                                    |
+| `vp run format`    | Format source files in place                            | Off                                                         |
+| `vp run lint`      | Lint and type-check through Oxlint                      | Automatic                                                   |
+| `vp run check`     | Check formatting, lint, and types                       | Automatic                                                   |
+| `vp run typecheck` | Run the project's TSRS compiler only                    | Automatic inputs; no restored outputs                       |
+| `vp run test`      | Run Vitest; supports forwarded options such as `watch`  | Off                                                         |
+| `vp run verify`    | Run build, check, and test in sequence                  | Reuses each task's policy                                   |
+
+`verify` builds first because TanStack generates route types during development/build. `check` already includes type-checking, so it does not run the standalone TSRS task again. The old `generate-routes` script was a full production build; use `vp run build` or `vp run dev` to generate routes.
+
+The build task fingerprints project files, including configuration, the lockfile, and `.env*`, while excluding generated files and dependencies in `node_modules`. It restores `.output/` and `src/routeTree.gen.ts` on a cache hit. This avoids Nitro's read/write artifacts and directory probes invalidating the cache when output is removed. Dependency versions are tracked through the lockfile; run `vp install` after changing dependencies.
+
+Vite+ tracks `VITE_*` and `NODE_ENV` automatically. The build task additionally fingerprints Nitro environment settings, including its preset and compatibility date. The TSRS task fingerprints `TSRS_*` settings. Package-manager lifecycle scripts such as `prepare` remain uncached by default.
+
+The build command clears `CODEX_TOOL_CALL_ID` for its child process: Vite+ 1.5.1 otherwise fingerprints this per-invocation agent metadata and unnecessarily rebuilds between agent commands.
+
+Vitest enables the React plugin without starting Nitro, TanStack Start, or devtools servers. This keeps unit tests from running the application's server lifecycle.
+
+Use `vp run --no-cache <name>` to force an execution, `vp run -v <name>` for cache details, and `vp cache clean` to clear the task cache. A failed task is not cached. The repository currently has no test files; `test` and `verify` report that failure instead of treating missing tests as success.
 
 ## Styling
 
@@ -44,7 +72,7 @@ If you prefer not to use Tailwind CSS:
 This project uses Nitro as a generic server adapter, so it can run on any Node-compatible host.
 
 ```bash
-npm run build
+vp run build
 node .output/server/index.mjs
 ```
 
