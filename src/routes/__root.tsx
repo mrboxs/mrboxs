@@ -1,13 +1,18 @@
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { HotkeysDevtoolsPanel } from '@tanstack/react-hotkeys-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 import {
 	HeadContent,
+	Outlet,
 	Scripts,
 	createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+import { SiteHeader } from '#/components/site-header'
 import { ThemeProvider } from '#/components/theme-provider'
+import { Toaster } from '#/components/ui/toast'
+import { TooltipProvider } from '#/components/ui/tooltip'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
 import appCss from '#/styles.css?url'
 
@@ -37,6 +42,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		],
 	}),
 	shellComponent: RootDocument,
+	component: RootComponent,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -50,14 +56,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="system"
-					disableTransitionOnChange
-					storageKey="theme"
-				>
-					{children}
-				</ThemeProvider>
+				{children}
 				<TanStackDevtools
 					config={{
 						position: 'bottom-right',
@@ -68,10 +67,31 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 							render: <TanStackRouterDevtoolsPanel />,
 						},
 						TanStackQueryDevtools,
+						{
+							name: 'Tanstack Hotkeys',
+							render: <HotkeysDevtoolsPanel />,
+						},
 					]}
 				/>
 				<Scripts />
 			</body>
 		</html>
+	)
+}
+
+function RootComponent() {
+	return (
+		<ThemeProvider
+			attribute="class"
+			defaultTheme="system"
+			disableTransitionOnChange
+			storageKey="theme"
+		>
+			<TooltipProvider>
+				<SiteHeader />
+				<Outlet />
+			</TooltipProvider>
+			<Toaster />
+		</ThemeProvider>
 	)
 }
