@@ -1,4 +1,5 @@
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { HotkeysDevtoolsPanel } from '@tanstack/react-hotkeys-devtools'
 import type { QueryClient } from '@tanstack/react-query'
 import {
 	HeadContent,
@@ -8,8 +9,10 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+import { SiteHeader } from '#/components/site-header'
 import { ThemeProvider } from '#/components/theme-provider'
 import { Toaster } from '#/components/ui/toast'
+import { TooltipProvider } from '#/components/ui/tooltip'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
 import appCss from '#/styles.css?url'
 
@@ -64,6 +67,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 							render: <TanStackRouterDevtoolsPanel />,
 						},
 						TanStackQueryDevtools,
+						{
+							name: 'Tanstack Hotkeys',
+							render: <HotkeysDevtoolsPanel />,
+						},
 					]}
 				/>
 				<Scripts />
@@ -80,7 +87,10 @@ function RootComponent() {
 			disableTransitionOnChange
 			storageKey="theme"
 		>
-			<Outlet />
+			<TooltipProvider>
+				<SiteHeader />
+				<Outlet />
+			</TooltipProvider>
 			<Toaster />
 		</ThemeProvider>
 	)
