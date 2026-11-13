@@ -41,6 +41,7 @@ export const SiteHeader = () => {
 					<Button
 						variant="ghost"
 						size="icon"
+						aria-label="GitHub repository"
 						nativeButton={false}
 						render={
 							<a

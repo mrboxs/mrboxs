@@ -46,6 +46,7 @@
 		"@vitejs/plugin-react": "^6.0.1",
 		"babel-plugin-react-compiler": "^1.0.0",
 		"eslint-plugin-react-hooks": "^7.1.1",
+		"happy-dom": "^21.0.4",
 		"oxlint-plugin-react-doctor": "^0.9.22",
 		"react-doctor": "^0.9.22",
 		"tsrs": "0.24.0-ts7.1.0-beta",

@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { useReducedMotion } from 'motion/react'
-
 import { decodeAudioData, getAudioContext } from '#/lib/sound-engine'
 import type {
 	SoundAsset,
 	UseSoundOptions,
 	UseSoundReturn,
 } from '#/lib/sound-types'
+
+function stopSources(sources: Map<AudioBufferSourceNode, GainNode>) {
+	for (const [source, gain] of sources) {
+		source.onended = null
+		try {
+			source.stop()
+		} catch {
+			// A source may have already ended before its event is dispatched.
+		}
+		source.disconnect()
+		gain.disconnect()
+	}
+	sources.clear()
+}
 
 export function useSound(
 	sound: SoundAsset,
@@ -17,7 +29,7 @@ export function useSound(
 		volume = 0.5,
 		playbackRate = 1,
 		interrupt = false,
-		soundEnabled: _soundEnabled = true,
+		soundEnabled = true,
 		onPlay,
 		onEnd,
 		onPause,
@@ -25,21 +37,21 @@ export function useSound(
 	} = options
 
 	const [isPlaying, setIsPlaying] = useState(false)
-	const [duration, setDuration] = useState<number | null>(sound.duration)
-	const sourceRef = useRef<AudioBufferSourceNode | null>(null)
-	const gainRef = useRef<GainNode | null>(null)
-	const bufferRef = useRef<AudioBuffer | null>(null)
-
-	const shouldReduceMotion = useReducedMotion()
-	const soundEnabled = _soundEnabled && !shouldReduceMotion
+	const [decodedSound, setDecodedSound] = useState<{
+		dataUri: string
+		buffer: AudioBuffer
+	} | null>(null)
+	const sourcesRef = useRef(new Map<AudioBufferSourceNode, GainNode>())
+	const { dataUri } = sound
+	const buffer = decodedSound?.dataUri === dataUri ? decodedSound.buffer : null
+	const duration = buffer?.duration ?? sound.duration
 
 	useEffect(() => {
 		let cancelled = false
-		decodeAudioData(sound.dataUri)
-			.then((buffer) => {
+		decodeAudioData(dataUri)
+			.then((decodedBuffer) => {
 				if (!cancelled) {
-					bufferRef.current = buffer
-					setDuration(buffer.duration)
+					setDecodedSound({ dataUri, buffer: decodedBuffer })
 				}
 			})
 			.catch((error: unknown) => {
@@ -50,24 +62,17 @@ export function useSound(
 		return () => {
 			cancelled = true
 		}
-	}, [sound.dataUri])
+	}, [dataUri])
 
 	const stop = useCallback(() => {
-		if (sourceRef.current) {
-			try {
-				sourceRef.current.stop()
-			} catch {
-				// Already stopped
-			}
-			sourceRef.current = null
-		}
+		stopSources(sourcesRef.current)
 		setIsPlaying(false)
 		onStop?.()
 	}, [onStop])
 
 	const play = useCallback(
 		(overrides?: { volume?: number; playbackRate?: number }) => {
-			if (!soundEnabled || !bufferRef.current) return
+			if (!soundEnabled || !buffer) return
 
 			const ctx = getAudioContext()
 
@@ -77,14 +82,14 @@ export function useSound(
 				})
 			}
 
-			if (interrupt && sourceRef.current) {
+			if (interrupt && sourcesRef.current.size > 0) {
 				stop()
 			}
 
 			const source = ctx.createBufferSource()
 			const gain = ctx.createGain()
 
-			source.buffer = bufferRef.current
+			source.buffer = buffer
 			source.playbackRate.value = overrides?.playbackRate ?? playbackRate
 			gain.gain.value = overrides?.volume ?? volume
 
@@ -92,17 +97,20 @@ export function useSound(
 			gain.connect(ctx.destination)
 
 			source.onended = () => {
-				setIsPlaying(false)
+				if (!sourcesRef.current.delete(source)) return
+				source.onended = null
+				source.disconnect()
+				gain.disconnect()
+				setIsPlaying(sourcesRef.current.size > 0)
 				onEnd?.()
 			}
 
 			source.start(0)
-			sourceRef.current = source
-			gainRef.current = gain
+			sourcesRef.current.set(source, gain)
 			setIsPlaying(true)
 			onPlay?.()
 		},
-		[soundEnabled, playbackRate, volume, interrupt, stop, onPlay, onEnd]
+		[soundEnabled, buffer, playbackRate, volume, interrupt, stop, onPlay, onEnd]
 	)
 
 	const pause = useCallback(() => {
@@ -111,20 +119,15 @@ export function useSound(
 	}, [stop, onPause])
 
 	useEffect(() => {
-		if (gainRef.current) {
-			gainRef.current.gain.value = volume
+		for (const gain of sourcesRef.current.values()) {
+			gain.gain.value = volume
 		}
 	}, [volume])
 
 	useEffect(() => {
+		const sources = sourcesRef.current
 		return () => {
-			if (sourceRef.current) {
-				try {
-					sourceRef.current.stop()
-				} catch {
-					// Already stopped
-				}
-			}
+			stopSources(sources)
 		}
 	}, [])
 
