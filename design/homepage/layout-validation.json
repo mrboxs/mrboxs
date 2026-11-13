@@ -1,0 +1,1121 @@
+{
+	"scope": "Native FigCraft design, not browser implementation",
+	"date": "2026-11-13",
+	"fontFamilies": ["Outfit", "Geist"],
+	"missingFonts": 0,
+	"views": [
+		{
+			"view": "desktop",
+			"artboard": {
+				"id": 119,
+				"width": 1440,
+				"height": 3150
+			},
+			"textNodes": 74,
+			"textOverflow": [],
+			"emDashCount": 0,
+			"minimumTextContrast": 5.16,
+			"undersizedTargets": [],
+			"targets": [
+				{
+					"name": "Header/Brand",
+					"id": 123,
+					"width": 44,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.4000000059604645,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1305,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/Work",
+					"id": 125,
+					"width": 64,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 156,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/Stack",
+					"id": 127,
+					"width": 66,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 194,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/About",
+					"id": 129,
+					"width": 70,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 150,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/GitHub",
+					"id": 131,
+					"width": 44,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Intro/Selected work",
+					"id": 146,
+					"width": 181,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 156,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Intro/GitHub",
+					"id": 148,
+					"width": 125,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Isometric card",
+					"id": 161,
+					"width": 768,
+					"height": 326,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.6000000238418579,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1323,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Brandkit card",
+					"id": 168,
+					"width": 372,
+					"height": 300,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs/mrboxs-brandkit"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Website card",
+					"id": 173,
+					"width": 372,
+					"height": 300,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Workbench/Brand menu/Interactive area",
+					"id": 185,
+					"width": 372,
+					"height": 164,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.4000000059604645,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1305,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Elsewhere/GitHub",
+					"id": 232,
+					"width": 372,
+					"height": 64,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Elsewhere/X",
+					"id": 236,
+					"width": 372,
+					"height": 64,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://x.com/isntboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Footer/Back to top",
+					"id": 243,
+					"width": 144,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 122,
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"view": "mobile",
+			"artboard": {
+				"id": 558,
+				"width": 390,
+				"height": 3878
+			},
+			"textNodes": 67,
+			"textOverflow": [],
+			"emDashCount": 0,
+			"minimumTextContrast": 5.16,
+			"undersizedTargets": [],
+			"targets": [
+				{
+					"name": "Header/Brand",
+					"id": 562,
+					"width": 44,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.4000000059604645,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1305,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/Work",
+					"id": 571,
+					"width": 64,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 673,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/Stack",
+					"id": 573,
+					"width": 64,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 889,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/About",
+					"id": 575,
+					"width": 84,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 667,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Intro/Selected work",
+					"id": 663,
+					"width": 181,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 673,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Intro/GitHub",
+					"id": 665,
+					"width": 125,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Isometric card",
+					"id": 677,
+					"width": 342,
+					"height": 326,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.6000000238418579,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1508,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Brandkit card",
+					"id": 753,
+					"width": 342,
+					"height": 300,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs/mrboxs-brandkit"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Website card",
+					"id": 781,
+					"width": 342,
+					"height": 300,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Workbench/Brand menu/Interactive area",
+					"id": 803,
+					"width": 342,
+					"height": 164,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.4000000059604645,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1305,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Elsewhere/GitHub",
+					"id": 926,
+					"width": 342,
+					"height": 64,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Elsewhere/X",
+					"id": 930,
+					"width": 342,
+					"height": 64,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://x.com/isntboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Footer/Back to top",
+					"id": 938,
+					"width": 122,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 561,
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"view": "tablet",
+			"artboard": {
+				"id": 2144,
+				"width": 834,
+				"height": 3150
+			},
+			"textNodes": 69,
+			"textOverflow": [],
+			"emDashCount": 0,
+			"minimumTextContrast": 5.16,
+			"undersizedTargets": [],
+			"targets": [
+				{
+					"name": "Header/Brand",
+					"id": 2148,
+					"width": 44,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.4000000059604645,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1305,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/Work",
+					"id": 2157,
+					"width": 64,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 2259,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/Stack",
+					"id": 2159,
+					"width": 66,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 2475,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/About",
+					"id": 2161,
+					"width": 70,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 2253,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Header/GitHub",
+					"id": 2163,
+					"width": 44,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Intro/Selected work",
+					"id": 2249,
+					"width": 181,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 2259,
+									"offset": [0, 24],
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Intro/GitHub",
+					"id": 2251,
+					"width": 125,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Isometric card",
+					"id": 2263,
+					"width": 768,
+					"height": 326,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.6000000238418579,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1323,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Brandkit card",
+					"id": 2339,
+					"width": 372,
+					"height": 300,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs/mrboxs-brandkit"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Work/Website card",
+					"id": 2367,
+					"width": 372,
+					"height": 300,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Workbench/Brand menu/Interactive area",
+					"id": 2389,
+					"width": 372,
+					"height": 164,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"background": {
+										"a": 0.4000000059604645,
+										"b": 0,
+										"g": 0,
+										"r": 0
+									},
+									"close_on_outside": true,
+									"dest": 1305,
+									"position": "center",
+									"type": "openOverlay"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Elsewhere/GitHub",
+					"id": 2512,
+					"width": 372,
+					"height": 64,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://github.com/mrboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Elsewhere/X",
+					"id": 2516,
+					"width": 372,
+					"height": 64,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"type": "openUrl",
+									"url": "https://x.com/isntboxs"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				},
+				{
+					"name": "Footer/Back to top",
+					"id": 2524,
+					"width": 144,
+					"height": 44,
+					"interactions": [
+						{
+							"actions": [
+								{
+									"dest": 2147,
+									"type": "scrollTo"
+								}
+							],
+							"duration_ms": 300,
+							"easing": "easeOut",
+							"transition": {
+								"type": "instant"
+							},
+							"trigger": {
+								"type": "onClick"
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

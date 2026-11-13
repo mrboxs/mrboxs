@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>mrboxs portfolio, FigCraft preview</title>
+		<style>
+			body {
+				margin: 0;
+				color: var(--foreground);
+				font-family: var(--font-sans);
+			}
+			.controls {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				align-items: center;
+				margin-bottom: 12px;
+			}
+			button {
+				min-height: 44px;
+				padding: 0 14px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: transparent;
+				color: var(--foreground);
+				font: inherit;
+				font-size: 13px;
+				cursor: pointer;
+			}
+			button:hover {
+				background: var(--secondary);
+			}
+			button[aria-pressed='true'] {
+				background: var(--foreground);
+				color: var(--background);
+				border-color: var(--foreground);
+			}
+			button:focus-visible {
+				outline: 2px solid var(--ring);
+				outline-offset: 3px;
+			}
+			#detail {
+				margin-left: auto;
+			}
+			#detail[hidden] {
+				display: none;
+			}
+			.viewport {
+				max-height: 1040px;
+				overflow-y: auto;
+				overflow-x: hidden;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				scrollbar-gutter: stable;
+			}
+			.sheet {
+				overflow: hidden;
+				margin: 0 auto;
+			}
+			img {
+				display: block;
+				width: 100%;
+				height: auto;
+			}
+			img[hidden] {
+				display: none;
+			}
+			.sheet.detail img {
+				width: 173.076923%;
+				max-width: none;
+				margin-left: -36.538462%;
+			}
+			.sheet.mobile {
+				max-width: 390px;
+			}
+			.caption {
+				margin: 10px 0 0;
+				color: var(--muted-foreground);
+				font-size: 12px;
+				line-height: 1.5;
+			}
+		</style>
+	</head>
+	<body>
+		<main aria-label="Preview desain portfolio mrboxs">
+			<nav class="controls" aria-label="Ukuran desain">
+				<button type="button" data-view="desktop" aria-pressed="true">
+					Desktop
+				</button>
+				<button type="button" data-view="tablet" aria-pressed="false">
+					Tablet
+				</button>
+				<button type="button" data-view="mobile" aria-pressed="false">
+					Mobile
+				</button>
+				<button type="button" id="detail" aria-pressed="true">
+					Detail kolom
+				</button>
+			</nav>
+			<div
+				class="viewport"
+				tabindex="0"
+				aria-label="Scroll untuk melihat seluruh homepage"
+			>
+				<div class="sheet detail" id="sheet">
+					<img
+						id="design"
+						src="/home/mrboxs/dev/work/mrboxs/design/homepage/desktop.png"
+						width="1440"
+						height="3150"
+						fetchpriority="high"
+						alt="Desain homepage MrBoxs di FigCraft: logo isometric, profil, proyek, workbench, stack, dan tautan sosial."
+					/>
+				</div>
+			</div>
+			<p class="caption" id="caption" aria-live="polite">
+				1440 px · Detail kolom tengah. Scroll untuk melihat seluruh desain.
+			</p>
+			<img
+				hidden
+				id="tablet-source"
+				src="/home/mrboxs/dev/work/mrboxs/design/homepage/tablet.png"
+				width="834"
+				height="3150"
+				alt=""
+			/>
+			<img
+				hidden
+				id="mobile-source"
+				src="/home/mrboxs/dev/work/mrboxs/design/homepage/mobile.png"
+				width="780"
+				height="7756"
+				alt=""
+			/>
+		</main>
+		<script>
+			const design = document.getElementById('design')
+			const sheet = document.getElementById('sheet')
+			const detail = document.getElementById('detail')
+			const caption = document.getElementById('caption')
+			const viewport = document.querySelector('.viewport')
+			const sources = {
+				desktop: {
+					src: design.src,
+					width: 1440,
+					height: 3150,
+					label: '1440 px',
+				},
+				tablet: {
+					src: document.getElementById('tablet-source').src,
+					width: 834,
+					height: 3150,
+					label: '834 px',
+				},
+				mobile: {
+					src: document.getElementById('mobile-source').src,
+					width: 780,
+					height: 7756,
+					label: '390 px · Export 2×',
+				},
+			}
+			let current = 'desktop'
+			let detailed = true
+			function update() {
+				const data = sources[current]
+				design.src = data.src
+				design.width = data.width
+				design.height = data.height
+				sheet.className =
+					'sheet' +
+					(current === 'mobile' ? ' mobile' : '') +
+					(current === 'desktop' && detailed ? ' detail' : '')
+				detail.hidden = current !== 'desktop'
+				detail.setAttribute('aria-pressed', String(detailed))
+				caption.textContent =
+					data.label +
+					(current === 'desktop' && detailed
+						? ' · Detail kolom tengah.'
+						: ' · Lebar penuh.') +
+					' Scroll untuk melihat seluruh desain.'
+				viewport.scrollTop = 0
+			}
+			document.querySelectorAll('[data-view]').forEach((button) => {
+				button.addEventListener('click', () => {
+					current = button.dataset.view
+					document
+						.querySelectorAll('[data-view]')
+						.forEach((item) =>
+							item.setAttribute('aria-pressed', String(item === button))
+						)
+					update()
+				})
+			})
+			detail.addEventListener('click', () => {
+				detailed = !detailed
+				update()
+			})
+		</script>
+	</body>
+</html>
