@@ -1,8 +1,16 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/outfit';
 @import '@fontsource-variable/geist';
+@import '@fontsource/caveat/latin-400.css';
+
+@font-face {
+	font-family: 'Paper Mono';
+	src: url('./assets/fonts/paper-mono.woff2') format('woff2');
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -38,6 +46,8 @@
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
 	--ring: oklch(0.708 0 0);
+	--line: color-mix(in oklab, var(--border) 64%, var(--background));
+	--dimension: oklch(0.705 0.015 286.067);
 	--chart-1: oklch(0.87 0 0);
 	--chart-2: oklch(0.556 0 0);
 	--chart-3: oklch(0.439 0 0);
@@ -55,7 +65,7 @@
 }
 
 .dark {
-	--background: oklch(0.145 0 0);
+	--background: oklch(0.141 0.005 285.823);
 	--foreground: oklch(0.985 0 0);
 	--card: oklch(0.205 0 0);
 	--card-foreground: oklch(0.985 0 0);
@@ -73,6 +83,12 @@
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
 	--ring: oklch(0.556 0 0);
+	--line: color-mix(
+		in oklab,
+		oklch(0.274 0.006 286.033) 64%,
+		var(--background)
+	);
+	--dimension: oklch(0.37 0.013 285.805);
 	--chart-1: oklch(0.87 0 0);
 	--chart-2: oklch(0.556 0 0);
 	--chart-3: oklch(0.439 0 0);
@@ -89,8 +105,12 @@
 }
 
 @theme inline {
-	--font-sans: 'Outfit Variable', sans-serif;
+	--font-sans: 'Geist Variable', sans-serif;
 	--font-heading: 'Geist Variable', sans-serif;
+	--font-mono: 'Paper Mono', monospace;
+	--font-handwritten: 'Caveat', cursive;
+	--color-line: var(--line);
+	--color-dimension: var(--dimension);
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -138,11 +158,142 @@
 	body {
 		@apply bg-background text-foreground;
 	}
+	a[href],
 	button:not(:disabled),
+	summary,
+	select:not(:disabled),
 	[role='button']:not(:disabled) {
 		cursor: pointer;
 	}
+	:disabled,
+	[aria-disabled='true'] {
+		cursor: not-allowed;
+	}
 	html {
 		@apply font-sans;
+	}
+}
+
+@utility screen-line-top {
+	position: relative;
+	&::before {
+		content: '';
+		position: absolute;
+		inset: 0 -100vw auto;
+		z-index: -1;
+		height: 1px;
+		background: var(--line);
+		pointer-events: none;
+	}
+}
+
+@utility screen-line-bottom {
+	position: relative;
+	&::after {
+		content: '';
+		position: absolute;
+		inset: auto -100vw 0;
+		z-index: -1;
+		height: 1px;
+		background: var(--line);
+		pointer-events: none;
+	}
+}
+
+@layer components {
+	.portfolio-page {
+		overflow-x: clip;
+		font-feature-settings: 'ss01', 'zero';
+	}
+
+	.stripe-divider::before {
+		content: '';
+		position: absolute;
+		inset: 0 -100vw;
+		pointer-events: none;
+		background-image: repeating-linear-gradient(
+			315deg,
+			color-mix(in oklab, var(--line) 56%, transparent) 0,
+			color-mix(in oklab, var(--line) 56%, transparent) 1px,
+			transparent 0,
+			transparent 50%
+		);
+		background-size: 10px 10px;
+	}
+
+	.info-icon {
+		display: flex;
+		width: 1.5rem;
+		height: 1.5rem;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid
+			color-mix(in oklab, var(--muted-foreground) 15%, transparent);
+		border-radius: var(--radius-md);
+		background: var(--muted);
+		color: var(--muted-foreground);
+		box-shadow:
+			0 0 0 1px var(--background),
+			0 0 0 2px var(--line);
+	}
+
+	.info-icon svg {
+		width: 1rem;
+		height: 1rem;
+		stroke-width: 1.5;
+	}
+
+	.profile-link {
+		position: relative;
+		text-decoration-thickness: 1px;
+		text-underline-offset: 3px;
+	}
+
+	.profile-link:hover {
+		text-decoration-line: underline;
+	}
+
+	.profile-link:active {
+		opacity: 0.7;
+	}
+
+	.profile-link:focus-visible {
+		outline: 2px solid var(--foreground);
+		outline-offset: 4px;
+		border-radius: 2px;
+	}
+
+	.profile-pronunciation {
+		position: relative;
+		color: var(--muted-foreground);
+	}
+
+	.profile-pronunciation::after {
+		content: '';
+		position: absolute;
+		inset: -10px;
+	}
+
+	.social-link {
+		box-shadow: none;
+	}
+
+	@media (pointer: coarse) {
+		.social-link,
+		.site-header [data-slot='button'] {
+			min-width: 44px;
+			min-height: 44px;
+		}
+
+		.profile-link::after {
+			content: '';
+			position: absolute;
+			inset: -10px 0;
+		}
+
+		#personal-information > div:first-of-type {
+			row-gap: 1.25rem;
+		}
 	}
 }

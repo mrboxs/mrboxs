@@ -18,8 +18,8 @@ import {
 
 export const SiteHeader = () => {
 	return (
-		<header className="fixed top-1 z-50 h-14 w-full border-y border-border bg-background">
-			<div className="container mx-auto flex h-full w-full max-w-3xl items-center justify-between border-x border-border px-2">
+		<header className="site-header fixed top-1 z-50 h-14 w-full border-y border-line bg-background">
+			<div className="mx-auto flex h-full w-full max-w-3xl items-center justify-between border-x border-line px-4">
 				<BrandAssetsMenu
 					logomark={<MrBoxsMark />}
 					logomarkSVG={logomarkSVG}

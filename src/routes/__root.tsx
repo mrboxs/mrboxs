@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+import favicon from '#/assets/mrboxs-symbol.svg?url'
 import { SiteHeader } from '#/components/site-header'
 import { ThemeProvider } from '#/components/theme-provider'
 import { Toaster } from '#/components/ui/toast'
@@ -31,10 +32,15 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				content: 'width=device-width, initial-scale=1',
 			},
 			{
-				title: 'TanStack Start Starter',
+				title: 'MrBoxs | Portfolio',
 			},
 		],
 		links: [
+			{
+				rel: 'icon',
+				type: 'image/svg+xml',
+				href: favicon,
+			},
 			{
 				rel: 'stylesheet',
 				href: appCss,
@@ -83,7 +89,7 @@ function RootComponent() {
 	return (
 		<ThemeProvider
 			attribute="class"
-			defaultTheme="system"
+			defaultTheme="dark"
 			disableTransitionOnChange
 			storageKey="theme"
 		>
