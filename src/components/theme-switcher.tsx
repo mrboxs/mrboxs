@@ -1,6 +1,7 @@
 import { useHotkey } from '@tanstack/react-hotkeys'
 
 import type { ComponentProps } from 'react'
+import { flushSync } from 'react-dom'
 
 import { mergeProps } from '@base-ui/react/merge-props'
 import { IconBrightness } from '@tabler/icons-react'
@@ -14,7 +15,19 @@ export const ThemeSwitcher = (props: ComponentProps<typeof Button>) => {
 	const shouldReduceMotion = useReducedMotion()
 
 	const switchTheme = () => {
-		setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+		const nextTheme = resolvedTheme === 'dark' ? 'light' : 'dark'
+
+		if (
+			shouldReduceMotion ||
+			typeof document.startViewTransition !== 'function'
+		) {
+			setTheme(nextTheme)
+			return
+		}
+
+		document.startViewTransition(() => {
+			flushSync(() => setTheme(nextTheme))
+		})
 	}
 
 	useHotkey('D', () => switchTheme())
