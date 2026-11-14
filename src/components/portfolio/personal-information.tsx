@@ -9,7 +9,6 @@ import {
 	IconCode,
 	IconMail,
 	IconMapPin,
-	IconPhone,
 } from '@tabler/icons-react'
 import { cn } from 'cn'
 
@@ -120,8 +119,15 @@ export function PersonalInformation() {
 						{profile.email}
 					</a>
 				</InfoItem>
-				<InfoItem icon={<IconPhone />}>
-					<span aria-label="Phone number placeholder">{profile.phone}</span>
+				<InfoItem icon={<IconBrandGithub />}>
+					<a
+						className="profile-link"
+						href={`https://github.com/${profile.githubUsername}`}
+						target="_blank"
+						rel="noopener noreferrer"
+					>
+						github.com/{profile.githubUsername}
+					</a>
 				</InfoItem>
 			</div>
 			<div

@@ -17,7 +17,7 @@ export const Route = createFileRoute('/')({ component: Home })
 
 function Home() {
 	return (
-		<main id="main-content" className="portfolio-page min-h-dvh pt-15">
+		<main id="main-content" className="portfolio-page min-h-dvh pt-14">
 			<div className="mx-auto max-w-3xl">
 				<FrameWidthDimension />
 				<ProfileHeader />

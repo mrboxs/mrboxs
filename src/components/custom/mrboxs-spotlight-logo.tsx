@@ -34,6 +34,27 @@ const sideFaces = mrboxsIsometric.sides.map((face) => ({
 	path: face.normal,
 	variants: pathVariants(face),
 }))
+const constructionFaceIds = new Set(['0-5', '4-2', '4-3'])
+const constructionLines = sideFaces
+	.filter((face) => constructionFaceIds.has(face.id))
+	.map((face) => {
+		const vertices = Array.from(
+			face.path.matchAll(/[ML](-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g),
+			([, x, y]) => ({ x: Number(x), y: Number(y) })
+		)
+		// The last two corners form the fixed base edge, including on press.
+		const start = vertices.at(-2)
+		const end = vertices.at(-1)
+		if (!start || !end) {
+			throw new Error(`Missing isometric base edge for face ${face.id}`)
+		}
+		const dx = (end.x - start.x) * 8
+		const dy = (end.y - start.y) * 8
+		return {
+			id: face.id,
+			path: `M${start.x - dx} ${start.y - dy}L${end.x + dx} ${end.y + dy}`,
+		}
+	})
 const spotlightVariants = {
 	normal: { opacity: 1 },
 	hovered: { opacity: 1 },
@@ -168,14 +189,18 @@ export function MrBoxsSpotlightLogo() {
 						strokeDasharray="4 2"
 						pointerEvents="none"
 					>
-						<path d="M-700-305.65 1200 791.31" />
-						<path d="M-700-216.52 1200 880.44" />
-						<path d="M-700 897.8 1200-199.16" />
+						{constructionLines.map((line) => (
+							<path
+								key={line.id}
+								d={line.path}
+								data-construction-face={line.id}
+							/>
+						))}
 					</g>
 
 					<g strokeWidth="0.7" strokeLinejoin="round">
 						{sideFaces.map((face) => (
-							<g key={face.id}>
+							<g key={face.id} data-isometric-face={face.id}>
 								<m.path
 									d={face.path}
 									variants={face.variants}

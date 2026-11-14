@@ -14,7 +14,6 @@ export const profile = {
 	location: 'Subang, Indonesia',
 	timeZone: 'Asia/Jakarta',
 	email: 'mrboxs@marvagency.net',
-	phone: '+62 8xx xxxx xxxx',
 	socials: [
 		{ name: 'x', label: 'X', href: 'https://x.com/isntboxs' },
 		{ name: 'github', label: 'GitHub', href: 'https://github.com/mrboxs' },
