@@ -95,12 +95,20 @@ export function AvatarDiameterDimension() {
 	)
 }
 
-export function ProfileSeparator() {
+export function SectionSeparator({ children }: { children?: ReactNode }) {
 	return (
 		<div
 			className="stripe-divider relative h-8 border-x border-line"
 			aria-hidden="true"
 		>
+			{children}
+		</div>
+	)
+}
+
+export function ProfileSeparator() {
+	return (
+		<SectionSeparator>
 			<div className="pointer-events-none absolute inset-0 hidden text-dimension select-none lg:block">
 				<span className="absolute top-0 -right-8 left-full h-px bg-current" />
 				<span className="absolute top-full -right-8 left-full h-px bg-current" />
@@ -112,7 +120,7 @@ export function ProfileSeparator() {
 					32
 				</span>
 			</div>
-		</div>
+		</SectionSeparator>
 	)
 }
 

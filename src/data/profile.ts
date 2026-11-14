@@ -1,6 +1,7 @@
 // Demo content until the portfolio's personal information is supplied.
 export const profile = {
 	displayName: 'MrBoxs',
+	githubUsername: 'mrboxs',
 	pronunciation: 'Mister Box',
 	avatar: 'https://avatars.githubusercontent.com/u/49678400?v=4&s=320',
 	tagline: 'Creating with code. Small details matter.',

@@ -48,6 +48,11 @@
 	--ring: oklch(0.708 0 0);
 	--line: color-mix(in oklab, var(--border) 64%, var(--background));
 	--dimension: oklch(0.705 0.015 286.067);
+	--contribution-0: oklch(0.967 0.001 286.375);
+	--contribution-1: oklch(0.871 0.006 286.286);
+	--contribution-2: oklch(0.705 0.015 286.067);
+	--contribution-3: oklch(0.552 0.016 285.938);
+	--contribution-4: oklch(0.37 0.013 285.805);
 	--chart-1: oklch(0.87 0 0);
 	--chart-2: oklch(0.556 0 0);
 	--chart-3: oklch(0.439 0 0);
@@ -89,6 +94,11 @@
 		var(--background)
 	);
 	--dimension: oklch(0.37 0.013 285.805);
+	--contribution-0: color-mix(in oklab, var(--muted) 35%, var(--background));
+	--contribution-1: oklch(0.274 0.006 286.033);
+	--contribution-2: oklch(0.37 0.013 285.805);
+	--contribution-3: oklch(0.552 0.016 285.938);
+	--contribution-4: oklch(0.705 0.015 286.067);
 	--chart-1: oklch(0.87 0 0);
 	--chart-2: oklch(0.556 0 0);
 	--chart-3: oklch(0.439 0 0);
@@ -279,8 +289,30 @@
 		box-shadow: none;
 	}
 
+	.contribution-calendar {
+		scrollbar-width: thin;
+		scrollbar-color: var(--border) transparent;
+	}
+
+	.contribution-calendar > svg {
+		width: 100%;
+		min-width: 36rem;
+		height: auto;
+	}
+
+	.contribution-day:hover rect,
+	.contribution-day:focus-visible rect {
+		stroke: var(--foreground);
+		stroke-width: 1px;
+	}
+
+	.contribution-day:focus-visible {
+		outline: none;
+	}
+
 	@media (pointer: coarse) {
 		.social-link,
+		.contribution-retry,
 		.site-header [data-slot='button'] {
 			min-width: 44px;
 			min-height: 44px;
