@@ -5,14 +5,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { act, useLayoutEffect } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
+import { useSound } from '#/hooks/use-sound'
 import { decodeAudioData, getAudioContext } from '#/lib/sound-engine'
 import type {
 	SoundAsset,
 	UseSoundOptions,
 	UseSoundReturn,
 } from '#/lib/sound-types'
-
-import { useSound } from './use-sound'
 
 vi.mock('#/lib/sound-engine', () => ({
 	decodeAudioData: vi.fn(),

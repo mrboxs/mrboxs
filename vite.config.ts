@@ -1,4 +1,4 @@
-import { defineConfig, lazyPlugins } from 'vite-plus'
+import { defineConfig, lazyPlugins, type Plugin } from 'vite-plus'
 
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -9,6 +9,26 @@ import viteReact, { reactCompilerPreset } from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 import { voidPlugin } from 'void'
+
+const chunkSizeBudget: Plugin = {
+	name: 'chunk-size-budget',
+	apply: 'build',
+	generateBundle: {
+		order: 'post',
+		handler(_options, bundle) {
+			const encoder = new TextEncoder()
+			for (const output of Object.values(bundle)) {
+				if (output.type !== 'chunk') continue
+				const bytes = encoder.encode(output.code).byteLength
+				if (bytes > 500_000) {
+					this.error(
+						`${output.fileName} is ${(bytes / 1000).toFixed(2)} kB, exceeding the 500 kB chunk budget. Split its dependencies before rebuilding.`
+					)
+				}
+			}
+		},
+	},
+}
 
 const ignorePatterns = [
 	'**/node_modules/**',
@@ -273,7 +293,10 @@ const config = defineConfig({
 		},
 		overrides: [
 			{
-				files: ['src/**/*.{js,jsx,ts,tsx,mjs,mts}'],
+				files: [
+					'src/**/*.{js,jsx,ts,tsx,mjs,mts}',
+					'tests/**/*.{js,jsx,ts,tsx,mjs,mts}',
+				],
 				env: {
 					browser: true,
 				},
@@ -331,6 +354,42 @@ const config = defineConfig({
 		},
 	},
 	resolve: { tsconfigPaths: true },
+	test: {
+		include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx,mjs,mts}'],
+	},
+	environments: {
+		client: {
+			build: {
+				rolldownOptions: {
+					output: {
+						strictExecutionOrder: true,
+						codeSplitting: {
+							// TanStack's virtual router imports app code as a dependency.
+							includeDependenciesRecursively: false,
+							groups: [
+								{
+									name: 'react-vendor',
+									test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+								},
+								{
+									name: 'tanstack-vendor',
+									test: /node_modules[\\/]@tanstack[\\/]/,
+								},
+								{
+									name: 'base-ui-vendor',
+									test: /node_modules[\\/]@base-ui[\\/]/,
+								},
+								{
+									name: 'motion-vendor',
+									test: /node_modules[\\/](?:motion|framer-motion|motion-dom|motion-utils)[\\/]/,
+								},
+							],
+						},
+					},
+				},
+			},
+		},
+	},
 	plugins: lazyPlugins(() => {
 		if (process.env.VITEST) return [viteReact()]
 
@@ -346,6 +405,7 @@ const config = defineConfig({
 			}),
 			viteReact(),
 			babel({ presets: [reactCompilerPreset()] }),
+			chunkSizeBudget,
 		]
 	}),
 	run: {

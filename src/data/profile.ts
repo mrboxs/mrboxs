@@ -1,0 +1,26 @@
+// Demo content until the portfolio's personal information is supplied.
+export const profile = {
+	displayName: 'MrBoxs',
+	githubUsername: 'mrboxs',
+	pronunciation: 'Mister Box',
+	avatar: 'https://avatars.githubusercontent.com/u/49678400?v=4&s=320',
+	taglines: [
+		'Building things with code.',
+		'Making mistakes. Finding better ways.',
+		'Still figuring things out.',
+	],
+	role: 'Amateur Web Dev',
+	company: 'unemployed',
+	location: 'Subang, Indonesia',
+	timeZone: 'Asia/Jakarta',
+	email: 'mrboxs@marvagency.net',
+	socials: [
+		{ name: 'x', label: 'X', href: 'https://x.com/isntboxs' },
+		{ name: 'github', label: 'GitHub', href: 'https://github.com/mrboxs' },
+		{
+			name: 'linkedin',
+			label: 'LinkedIn (placeholder)',
+			href: 'https://www.linkedin.com/',
+		},
+	],
+} as const

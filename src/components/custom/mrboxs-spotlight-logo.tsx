@@ -1,11 +1,11 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 
 import {
 	domAnimation,
 	LazyMotion,
 	m,
+	useInView,
 	useMotionValue,
-	useReducedMotion,
 	useSpring,
 } from 'motion/react'
 
@@ -34,13 +34,49 @@ const sideFaces = mrboxsIsometric.sides.map((face) => ({
 	path: face.normal,
 	variants: pathVariants(face),
 }))
+const constructionFaceIds = new Set(['0-5', '4-2', '4-3'])
+const constructionLines = sideFaces
+	.filter((face) => constructionFaceIds.has(face.id))
+	.map((face) => {
+		const vertices = Array.from(
+			face.path.matchAll(/[ML](-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g),
+			([, x, y]) => ({ x: Number(x), y: Number(y) })
+		)
+		// The last two corners form the fixed base edge, including on press.
+		const start = vertices.at(-2)
+		const end = vertices.at(-1)
+		if (!start || !end) {
+			throw new Error(`Missing isometric base edge for face ${face.id}`)
+		}
+		const dx = (end.x - start.x) * 8
+		const dy = (end.y - start.y) * 8
+		return {
+			id: face.id,
+			path: `M${start.x - dx} ${start.y - dy}L${end.x + dx} ${end.y + dy}`,
+		}
+	})
 const spotlightVariants = {
-	normal: { opacity: 0 },
+	normal: { opacity: 1 },
 	hovered: { opacity: 1 },
 	pressed: { opacity: 1 },
 }
 
+function subscribeToReducedMotion(onChange: () => void) {
+	const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+	query.addEventListener('change', onChange)
+	return () => query.removeEventListener('change', onChange)
+}
+
+function getReducedMotion() {
+	return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function getServerReducedMotion() {
+	return true
+}
+
 export function MrBoxsSpotlightLogo() {
+	const ref = useRef<HTMLButtonElement>(null)
 	const id = useId()
 	const ids = {
 		shape: `mrboxs-logo-shape-${id}`,
@@ -48,7 +84,12 @@ export function MrBoxsSpotlightLogo() {
 		spotlight: `mrboxs-logo-spotlight-${id}`,
 	}
 	const [play] = useSound(metalClickSound)
-	const shouldReduceMotion = useReducedMotion()
+	const shouldReduceMotion = useSyncExternalStore(
+		subscribeToReducedMotion,
+		getReducedMotion,
+		getServerReducedMotion
+	)
+	const isInView = useInView(ref, { margin: '80px' })
 	const [isKeyboardPressed, setIsKeyboardPressed] = useState(false)
 	const mouseX = useMotionValue(278)
 	const mouseY = useMotionValue(177)
@@ -58,13 +99,33 @@ export function MrBoxsSpotlightLogo() {
 	const highlightVariant =
 		isKeyboardPressed && !shouldReduceMotion ? 'pressed' : 'hovered'
 
+	useEffect(() => {
+		if (
+			shouldReduceMotion ||
+			!isInView ||
+			!window.matchMedia('(hover: hover) and (pointer: fine)').matches
+		) {
+			return
+		}
+
+		const followPointer = (event: PointerEvent) => {
+			if (event.pointerType === 'touch') return
+			mouseX.set(49 + (event.clientX / window.innerWidth) * 458)
+			mouseY.set(32 + (event.clientY / window.innerHeight) * 291)
+		}
+
+		window.addEventListener('pointermove', followPointer)
+		return () => window.removeEventListener('pointermove', followPointer)
+	}, [isInView, shouldReduceMotion, mouseX, mouseY])
+
 	return (
 		<LazyMotion features={domAnimation} strict>
 			<m.button
+				ref={ref}
 				type="button"
 				tabIndex={0}
 				aria-label="Play mrboxs logo sound"
-				className="block w-full cursor-pointer touch-manipulation rounded-sm [--pattern:color-mix(in_oklab,var(--foreground)_12%,var(--background))] [--stroke:color-mix(in_oklab,var(--foreground)_24%,var(--background))] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground"
+				className="block w-full cursor-pointer touch-manipulation rounded-sm [--pattern:color-mix(in_oklab,var(--foreground)_12%,var(--background))] [--stroke:color-mix(in_oklab,var(--foreground)_16%,var(--background))] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-foreground"
 				initial="normal"
 				whileHover={highlightVariant}
 				whileFocus={highlightVariant}
@@ -80,17 +141,10 @@ export function MrBoxsSpotlightLogo() {
 				}}
 				onKeyUp={() => setIsKeyboardPressed(false)}
 				onBlur={() => setIsKeyboardPressed(false)}
-				onPointerMove={(event) => {
-					if (shouldReduceMotion || event.pointerType === 'touch') return
-
-					const bounds = event.currentTarget.getBoundingClientRect()
-					mouseX.set(((event.clientX - bounds.left) / bounds.width) * 556)
-					mouseY.set(((event.clientY - bounds.top) / bounds.height) * 354)
-				}}
 			>
 				<svg
-					className="h-auto w-full"
-					viewBox={mrboxsIsometric.viewBox}
+					className="h-auto w-full overflow-visible"
+					viewBox="49 32 458 291"
 					width="556"
 					height="354"
 					fill="none"
@@ -107,12 +161,12 @@ export function MrBoxsSpotlightLogo() {
 						/>
 						<pattern
 							id={ids.pattern}
-							width="8"
-							height="8"
+							width="10"
+							height="10"
 							patternUnits="userSpaceOnUse"
 						>
 							<path
-								d="M-1 1l2 -2M0 8l8 -8M7 9l2 -2"
+								d="M-1 1l2 -2M0 10l10 -10M9 11l2 -2"
 								stroke="var(--pattern)"
 								strokeWidth="0.7"
 							/>
@@ -129,9 +183,24 @@ export function MrBoxsSpotlightLogo() {
 						</m.radialGradient>
 					</defs>
 
+					<g
+						stroke="var(--line)"
+						strokeWidth="0.7"
+						strokeDasharray="4 2"
+						pointerEvents="none"
+					>
+						{constructionLines.map((line) => (
+							<path
+								key={line.id}
+								d={line.path}
+								data-construction-face={line.id}
+							/>
+						))}
+					</g>
+
 					<g strokeWidth="0.7" strokeLinejoin="round">
 						{sideFaces.map((face) => (
-							<g key={face.id}>
+							<g key={face.id} data-isometric-face={face.id}>
 								<m.path
 									d={face.path}
 									variants={face.variants}
@@ -161,6 +230,30 @@ export function MrBoxsSpotlightLogo() {
 						<m.g variants={spotlightVariants} transition={highlightTransition}>
 							<use href={`#${ids.shape}`} stroke={`url(#${ids.spotlight})`} />
 						</m.g>
+					</g>
+
+					<g
+						className="pointer-events-none text-dimension max-sm:hidden"
+						stroke="currentColor"
+						strokeWidth="0.8"
+						strokeLinejoin="round"
+					>
+						<path d="M203.35 38.09H101.35M115.35 38.09A88 88 0 0 0 127.14 82.09" />
+						<path
+							d="m115.35 38.09-3 8h6Zm11.79 44 6.6-5.4-3-5.2Z"
+							fill="var(--background)"
+						/>
+						<text
+							x="103"
+							y="64.6"
+							className="fill-current font-mono"
+							stroke="none"
+							fontSize="10"
+							textAnchor="middle"
+							dominantBaseline="central"
+						>
+							30°
+						</text>
 					</g>
 				</svg>
 			</m.button>

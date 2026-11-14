@@ -2,7 +2,7 @@ import { expect, it } from 'vite-plus/test'
 
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { Button } from './button'
+import { Button } from '#/components/ui/button'
 
 it.each([false, true])(
 	'passes disabled=%s to className callbacks',
