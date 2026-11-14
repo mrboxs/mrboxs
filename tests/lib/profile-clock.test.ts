@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
-import { formatProfileClock } from './profile-clock'
+import { formatProfileClock } from '#/lib/profile-clock'
 
 afterEach(() => vi.restoreAllMocks())
 

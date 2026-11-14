@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test'
 
-import { parseGitHubContributions } from './github-contributions'
+import { parseGitHubContributions } from '#/lib/github-contributions'
 
 describe('parseGitHubContributions', () => {
 	it('sorts days and derives the total from the actual displayed range', () => {
