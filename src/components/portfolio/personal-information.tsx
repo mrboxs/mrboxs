@@ -125,7 +125,7 @@ export function PersonalInformation() {
 				</InfoItem>
 			</div>
 			<div
-				className="pointer-events-none absolute top-12 right-1/2 bottom-4 -z-1 hidden w-px -translate-x-2.25 border-r border-dashed border-line sm:block"
+				className="pointer-events-none absolute top-0 right-1/2 bottom-4 -z-1 hidden h-full w-px -translate-x-2.25 border-r border-dashed border-line sm:block"
 				aria-hidden="true"
 			/>
 		</section>

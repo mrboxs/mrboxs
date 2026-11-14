@@ -5,6 +5,7 @@ import {
 
 import { MrBoxsMark } from '#/components/custom/mrboxs-mark'
 import { MrBoxsSpotlightLogo } from '#/components/custom/mrboxs-spotlight-logo'
+import { TextLoop } from '#/components/custom/text-loop'
 import { Button } from '#/components/ui/button'
 import { toast } from '#/components/ui/toast'
 import {
@@ -112,9 +113,11 @@ export function ProfileHeader() {
 						/>
 						<PronounceName />
 					</div>
-					<p className="min-h-12.5 border-t border-line py-1 pr-3 pl-3 font-mono text-sm/6 text-muted-foreground sm:min-h-9 sm:pl-4">
-						{profile.tagline}
-					</p>
+					<TextLoop className="min-h-12.5 w-full border-t border-line py-1 pr-3 pl-3 font-mono text-sm/6 text-muted-foreground sm:min-h-9 sm:pl-4">
+						{profile.taglines.map((tagline) => (
+							<span key={`${tagline}`}>{tagline}</span>
+						))}
+					</TextLoop>
 				</div>
 			</div>
 		</section>
