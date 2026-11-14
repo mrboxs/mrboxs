@@ -123,7 +123,14 @@ function ContributionDay({
 
 function ActivityGraph({ data }: { data: GitHubContributionData }) {
 	const [focusedDate, setFocusedDate] = useState<string | null>(null)
-	const tabStop = focusedDate ?? data.to
+	// Gap filling renders every date between the range bounds.
+	const isFocusedDateVisible =
+		focusedDate !== null &&
+		data.from !== null &&
+		data.to !== null &&
+		focusedDate >= data.from &&
+		focusedDate <= data.to
+	const tabStop = isFocusedDateVisible ? focusedDate : data.to
 	const total = countFormat.format(data.total)
 	const from = data.from ? formatDate(data.from) : ''
 	const to = data.to ? formatDate(data.to) : ''

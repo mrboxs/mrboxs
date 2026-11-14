@@ -1,12 +1,18 @@
-import { useState, useEffect, Children } from 'react'
+import { useState, useEffect, useRef, Children, type ReactNode } from 'react'
 
-import type { ReactNode } from '@tabler/icons-react'
 import { cn } from 'cn'
 import type { Transition, Variants, AnimatePresenceProps } from 'motion/react'
-import { motion, AnimatePresence } from 'motion/react'
+import {
+	AnimatePresence,
+	domAnimation,
+	LazyMotion,
+	m,
+	useReducedMotion,
+} from 'motion/react'
 
 export type TextLoopProps = {
 	children: Array<ReactNode>
+	id?: string
 	className?: string
 	interval?: number
 	transition?: Transition
@@ -18,6 +24,7 @@ export type TextLoopProps = {
 
 export function TextLoop({
 	children,
+	id,
 	className,
 	interval = 2,
 	transition = { duration: 0.3 },
@@ -27,18 +34,20 @@ export function TextLoop({
 	mode = 'popLayout',
 }: TextLoopProps) {
 	const [currentIndex, setCurrentIndex] = useState(0)
+	const indexRef = useRef(0)
+	const shouldReduceMotion = useReducedMotion()
 	const items = Children.toArray(children)
+	const activeIndex = items.length > 0 ? currentIndex % items.length : 0
 
 	useEffect(() => {
-		if (!trigger) return
+		if (!trigger || items.length < 2) return
 
 		const intervalMs = interval * 1000
 		const timer = setInterval(() => {
-			setCurrentIndex((current) => {
-				const next = (current + 1) % items.length
-				onIndexChange?.(next)
-				return next
-			})
+			const next = (indexRef.current + 1) % items.length
+			indexRef.current = next
+			setCurrentIndex(next)
+			onIndexChange?.(next)
 		}, intervalMs)
 		return () => clearInterval(timer)
 	}, [items.length, interval, onIndexChange, trigger])
@@ -50,19 +59,21 @@ export function TextLoop({
 	}
 
 	return (
-		<div className={cn('relative inline-block whitespace-nowrap', className)}>
-			<AnimatePresence mode={mode} initial={false}>
-				<motion.div
-					key={currentIndex}
-					initial="initial"
-					animate="animate"
-					exit="exit"
-					transition={transition}
-					variants={variants ?? motionVariants}
-				>
-					{items[currentIndex]}
-				</motion.div>
-			</AnimatePresence>
-		</div>
+		<LazyMotion features={domAnimation} strict>
+			<div id={id} className={cn('relative min-w-0', className)}>
+				<AnimatePresence mode={mode} initial={false}>
+					<m.div
+						key={activeIndex}
+						initial="initial"
+						animate="animate"
+						exit="exit"
+						transition={shouldReduceMotion ? { duration: 0 } : transition}
+						variants={variants ?? motionVariants}
+					>
+						{items[activeIndex]}
+					</m.div>
+				</AnimatePresence>
+			</div>
+		</LazyMotion>
 	)
 }

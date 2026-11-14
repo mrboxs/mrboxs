@@ -1,4 +1,8 @@
+import { useState } from 'react'
+
 import {
+	IconPlayerPause,
+	IconPlayerPlay,
 	IconRosetteDiscountCheckFilled,
 	IconVolume2,
 } from '@tabler/icons-react'
@@ -59,6 +63,11 @@ function PronounceName() {
 }
 
 export function ProfileHeader() {
+	const [taglinePaused, setTaglinePaused] = useState(false)
+	const taglineAction = taglinePaused
+		? 'Resume tagline rotation'
+		: 'Pause tagline rotation'
+
 	return (
 		<section
 			className="screen-line-bottom relative isolate grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] overflow-y-clip border-x border-line"
@@ -100,7 +109,7 @@ export function ProfileHeader() {
 
 			<div className="flex min-w-0 flex-col">
 				<div className="z-1 mt-auto border-t border-line">
-					<div className="flex min-h-8 -translate-x-px items-center gap-2 pl-3 sm:pl-4">
+					<div className="flex min-h-8 -translate-x-px items-center gap-1 pl-3 sm:gap-2 sm:pl-4">
 						<h1
 							id="profile-name"
 							className="-translate-y-px font-heading text-[clamp(1.5rem,4vw,2rem)]/none font-medium tracking-tight"
@@ -112,10 +121,35 @@ export function ProfileHeader() {
 							aria-hidden="true"
 						/>
 						<PronounceName />
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<Button
+										variant="ghost"
+										size="icon-lg"
+										className="size-11 shrink-0 rounded-none focus-visible:ring-inset pointer-fine:size-9"
+										aria-label={taglineAction}
+										aria-controls="profile-tagline"
+										onClick={() => setTaglinePaused((paused) => !paused)}
+									/>
+								}
+							>
+								{taglinePaused ? (
+									<IconPlayerPlay aria-hidden="true" />
+								) : (
+									<IconPlayerPause aria-hidden="true" />
+								)}
+							</TooltipTrigger>
+							<TooltipContent>{taglineAction}</TooltipContent>
+						</Tooltip>
 					</div>
-					<TextLoop className="min-h-12.5 w-full border-t border-line py-1 pr-3 pl-3 font-mono text-sm/6 text-muted-foreground sm:min-h-9 sm:pl-4">
+					<TextLoop
+						id="profile-tagline"
+						trigger={!taglinePaused}
+						className="min-h-12.5 w-full border-t border-line px-3 py-1 font-mono text-sm/6 text-muted-foreground sm:min-h-9 sm:pl-4"
+					>
 						{profile.taglines.map((tagline) => (
-							<span key={`${tagline}`}>{tagline}</span>
+							<span key={tagline}>{tagline}</span>
 						))}
 					</TextLoop>
 				</div>
