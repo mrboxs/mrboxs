@@ -224,10 +224,44 @@ The added DOM regressions cover all five callout types, ordinary and escaped
 quotes, nested/empty callouts, source offsets and HTML/URL safety, table alignment
 and cell content, image dialog opening/Escape/focus restoration, failed previews
 and retry, changing images, and linked/heading/reference images. SSR hydration
-also covers all three new components together. These additions were validated
-with Happy DOM and a production build; the browser measurements above describe
-the earlier renderer pass, not a new visual verification of these components.
+also covers all three new components together. At implementation time these
+additions were validated with Happy DOM and a production build. Subsequent
+verification in the real browser is recorded below.
 
 Validation passed: format/lint/typecheck, all 292 tests, and the production build.
 React Doctor scored 100/100 when scanning the changes relative to `HEAD`, including
 all newly added untracked components (`--include-untracked`).
+
+## Browser follow-up: Table, Dialog, and Alert
+
+Checked the real showcase again after the shadcn integration, in the shared
+Chromium browser. Desktop used a 1280 × 900 viewport; mobile used 390 × 844 and
+320 × 740. The image viewer was also checked in 844 × 390 landscape. Light and
+dark themes were exercised. These are responsive browser viewport checks, not
+physical-device touch or screen-reader tests.
+
+- **Table PASS:** both tables use the shadcn components. Left/center/right column
+  alignment, inline formatting, borders, row hover, and text wrapping remained
+  intact. The six-column table scrolls inside its focusable container on mobile,
+  using both ArrowRight and horizontal scrolling. Keyboard focus has a visible
+  ring. No page-level horizontal overflow occurred.
+- **Dialog PASS:** the standalone and reference-image triggers open the correct
+  image with a matching title. The preview loads at a size that fits each tested
+  viewport, including portrait and short landscape, with Close visible. Enter
+  opens the viewer; Tab stays inside it. Escape, Close, and clicking the backdrop
+  dismiss it and restore focus to the corresponding trigger. Background scrolling
+  is locked while open. Linked images retain their link with no nested button.
+- **Preview error/retry PASS:** a preview URL was temporarily changed in the DOM
+  to an intentionally missing public asset to exercise a real image-load failure.
+  The fallback appeared, Close remained usable, and the article thumbnail stayed
+  visible. Reopening recreated the original image URL and loaded it successfully.
+  The resulting test 404 is expected and is not an application failure.
+- **Alert PASS:** all five callout types have the correct title/icon/body, and
+  their markers are absent from rendered text. Body code/formatting remains
+  readable, text wraps on narrow screens, and the boxes do not overflow. Callouts
+  are not italicized like quotations. In light mode the measured description
+  contrast was 4.74:1 for neutral callouts and 4.54:1 for Caution.
+
+No new rendering defect, application error, or unhandled rejection was observed
+in this follow-up; no renderer source change was required. The existing browser
+tab was retained, with its dark theme and viewport returned to fill mode.
