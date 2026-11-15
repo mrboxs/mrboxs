@@ -1,9 +1,12 @@
 {
 	"version": 1,
-	"source": {},
+	"source": {
+		"name": "mrboxs"
+	},
 	"resolved": {
 		"account_id": "af82eb1ef0fd1d756fe34d59260dd2ec",
-		"compatibility_date": "2026-02-24"
+		"compatibility_date": "2026-02-24",
+		"name": "mrboxs"
 	},
-	"text": "{\n  \"account_id\": \"af82eb1ef0fd1d756fe34d59260dd2ec\",\n  \"compatibility_date\": \"2026-02-24\"\n}\n"
+	"text": "{\n  \"account_id\": \"af82eb1ef0fd1d756fe34d59260dd2ec\",\n  \"compatibility_date\": \"2026-02-24\",\n  \"name\": \"mrboxs\"\n}\n"
 }
