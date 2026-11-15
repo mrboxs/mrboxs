@@ -5,7 +5,7 @@ import { Octokit } from '@octokit/rest'
 import { parseDocument } from 'yaml'
 import { z } from 'zod'
 
-import { resolvePostAsset } from '#/lib/blog'
+import { normalizePostAssetPath, resolvePostAsset } from '#/lib/blog'
 import type { BlogAsset, BlogAuthor, BlogPost, PostMetadata } from '#/lib/blog'
 
 const repository = {
@@ -14,6 +14,23 @@ const repository = {
 	headers: { 'X-GitHub-Api-Version': '2022-11-28' },
 } as const
 const branch = 'main'
+const maxBlobBytes = 5 * 1024 * 1024
+const imageTypes: Readonly<Record<string, string>> = {
+	png: 'image/png',
+	jpg: 'image/jpeg',
+	jpeg: 'image/jpeg',
+	gif: 'image/gif',
+	webp: 'image/webp',
+	avif: 'image/avif',
+	svg: 'image/svg+xml',
+}
+
+function assetContentType(path: string): string | undefined {
+	const extension = /\.([a-z0-9]+)$/i.exec(path)?.[1].toLowerCase() ?? ''
+	return Object.hasOwn(imageTypes, extension)
+		? imageTypes[extension]
+		: undefined
+}
 const slugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 const shaSchema = z.string().regex(/^[a-f0-9]{40}$/)
 const textSchema = z.string().refine((value) => value.trim().length > 0)
@@ -47,6 +64,7 @@ const treeSchema = z.object({
 			mode: z.string(),
 			type: z.enum(['blob', 'tree', 'commit']),
 			sha: shaSchema,
+			size: z.number().int().nonnegative().optional(),
 		})
 	),
 })
@@ -73,6 +91,22 @@ export class PostNotFoundError extends Error {
 	constructor() {
 		super('Post not found')
 		this.name = 'PostNotFoundError'
+	}
+}
+
+export class AssetNotFoundError extends Error {
+	readonly code = 'BLOG_ASSET_NOT_FOUND'
+	constructor() {
+		super('Asset not found')
+		this.name = 'AssetNotFoundError'
+	}
+}
+
+export class BlogAssetTooLargeError extends Error {
+	readonly code = 'BLOG_ASSET_TOO_LARGE'
+	constructor() {
+		super('Blog asset exceeds the 5 MiB limit')
+		this.name = 'BlogAssetTooLargeError'
 	}
 }
 
@@ -202,16 +236,19 @@ export function createBlogContentService(client: Octokit) {
 			throw new BlogSourceError('invalid-response')
 		}
 		// These maps live for one operation, never across requests or commits.
-		const blobs = new Map<string, Promise<string>>()
+		const blobs = new Map<string, Promise<Uint8Array<ArrayBuffer>>>()
 		const authors = new Map<string, Promise<BlogAuthor>>()
 
-		function readText(path: string): Promise<string> {
+		function readBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
 			const entry = files.get(path)
 			if (
 				entry?.type !== 'blob' ||
 				!['100644', '100755'].includes(entry.mode)
 			) {
 				throw new InvalidBlogContentError(path, 'missing regular file')
+			}
+			if (entry.size !== undefined && entry.size > maxBlobBytes) {
+				throw new BlogAssetTooLargeError()
 			}
 			let pending = blobs.get(entry.sha)
 			if (!pending) {
@@ -223,18 +260,38 @@ export function createBlogContentService(client: Octokit) {
 					})
 				).then((data) => {
 					const blob = sourceData(blobSchema, data)
+					// Bound decoded allocation even if tree size is missing or inaccurate.
+					if (
+						blob.content.replace(/\s/g, '').length >
+						Math.ceil(maxBlobBytes / 3) * 4
+					) {
+						throw new BlogAssetTooLargeError()
+					}
+					let bytes: Uint8Array<ArrayBuffer>
 					try {
-						const bytes = Uint8Array.from(atob(blob.content), (char) =>
+						bytes = Uint8Array.from(atob(blob.content), (char) =>
 							char.charCodeAt(0)
 						)
-						return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
 					} catch {
 						throw new BlogSourceError('invalid-response')
 					}
+					if (bytes.byteLength > maxBlobBytes) {
+						throw new BlogAssetTooLargeError()
+					}
+					return bytes
 				})
 				blobs.set(entry.sha, pending)
 			}
 			return pending
+		}
+
+		async function readText(path: string): Promise<string> {
+			const bytes = await readBytes(path)
+			try {
+				return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+			} catch {
+				throw new BlogSourceError('invalid-response')
+			}
 		}
 
 		function readAuthor(id: string): Promise<BlogAuthor> {
@@ -292,10 +349,23 @@ export function createBlogContentService(client: Octokit) {
 				assets,
 			}
 		}
-		return { files, readPost }
+		return { files, readPost, readBytes }
 	}
 
 	return {
+		async getPostAsset(slug: string, reference: string) {
+			const path = normalizePostAssetPath(reference)
+			const contentType = path ? assetContentType(path) : undefined
+			if (!slugSchema.safeParse(slug).success || !path || !contentType) {
+				throw new AssetNotFoundError()
+			}
+			const { files, readPost, readBytes } = await snapshot()
+			if (!files.has(`posts/${slug}/index.md`)) throw new AssetNotFoundError()
+			const post = await readPost(slug)
+			const asset = post ? resolvePostAsset(post, path) : undefined
+			if (!asset) throw new AssetNotFoundError()
+			return { bytes: await readBytes(asset.path), contentType }
+		},
 		async listPosts(): Promise<Array<PostMetadata>> {
 			const { files, readPost } = await snapshot()
 			const slugs = [...files.keys()].flatMap((path) => {
@@ -352,4 +422,13 @@ export async function listPosts(): Promise<Array<PostMetadata>> {
 export async function getPostBySlug(slug: string): Promise<BlogPost> {
 	if (!slugSchema.safeParse(slug).success) throw new PostNotFoundError()
 	return configuredService().getPostBySlug(slug)
+}
+
+export async function getPostAsset(slug: string, reference: string) {
+	// Validate before resolving credentials as well as at the injected service boundary.
+	const path = normalizePostAssetPath(reference)
+	if (!slugSchema.safeParse(slug).success || !path || !assetContentType(path)) {
+		throw new AssetNotFoundError()
+	}
+	return configuredService().getPostAsset(slug, path)
 }

@@ -6,10 +6,12 @@ The `.server.ts` suffix and TanStack Start's `server-only` marker protect the
 module from browser imports. A future loader must call it through a server
 boundary; TanStack route loaders themselves also run in the browser.
 
-`src/lib/blog.ts` contains browser-safe data types and `resolvePostAsset()`.
+`src/lib/blog.ts` contains browser-safe data types, `resolvePostAsset()`, and
+`getPostAssetUrl()`. `getPostAsset(slug, path)` reads public image bytes on the
+server, exposed by `GET/HEAD /api/blog/assets/<slug>/<path>`.
 The service returns Markdown as text. It never compiles or executes Markdown,
 MDX, HTML, code fences, or optional extensions. UI, oRPC, Query integration,
-asset delivery, persistent caching, and webhooks are outside this service.
+persistent caching, storage uploads, and webhooks remain outside this service.
 
 ## Repository contract
 
@@ -49,9 +51,9 @@ truncate it will need a different discovery strategy.
 
 The service requires `GITHUB_BLOG_TOKEN`, declared as a server key in root
 `env.ts` and read through `env` from `void/env` when a function is called.
-The schema key is optional while the blog is not integrated, allowing the rest
-of the app to run/deploy without it. Blog calls fail with a configuration error
-until a nonempty credential is supplied. It has no default or `VITE_` prefix.
+The schema key remains optional to allow unrelated app features to run/deploy
+without it. Blog calls require a nonempty credential; the asset endpoint returns
+a sanitized 500 response if it is missing. It has no default or `VITE_` prefix.
 
 Use a separate fine-grained GitHub token restricted to **written-by-boxs** with
 **Contents: read-only** permission. Configure rotation/expiry for production.
@@ -101,7 +103,7 @@ establish that an article does not exist. Draft and missing article errors have
 the same message. Future HTTP adapters should map only `PostNotFoundError` to an
 article 404 and use suitable server-error responses for the other classes.
 
-## Asset integration still required
+## Asset endpoint
 
 `assets` keys are paths relative to the article folder, such as `cover.png` or
 `images/diagram.png`. A future Markdown renderer can call
@@ -110,17 +112,42 @@ from reference images. It accepts an optional leading `./`, verifies membership
 in the post's inventory, and rejects traversal, absolute URLs/paths, backslashes,
 percent encoding, query strings, fragments, and control characters. A missing
 or unsupported reference returns `undefined`; the renderer must handle it.
-The body itself is never rewritten or scanned with a Markdown regex.
+The body itself is never rewritten or scanned with a Markdown regex. Convert a
+resolved reference (or `post.cover.src`) using `getPostAssetUrl(asset)`:
 
-Before images can display, implement a same-origin asset endpoint or publish
-approved assets to storage. That integration must translate these references
-into application URLs, fetch the fixed repository's blobs on the server, and
-return bytes with an appropriate content type. It must enforce public-post
-visibility for the chosen snapshot and validate/allowlist the requested asset
-against that post, rather than accepting arbitrary repo paths or commit IDs.
-Do not redirect to GitHub, serialize GitHub `download_url` values, or send the
-token to the browser. Raw GitHub URLs cannot serve this private repository to
-anonymous readers. No asset HTTP endpoint or storage upload is included here.
+```ts
+getPostAssetUrl(post.cover.src)
+// /api/blog/assets/markdown-showcase/cover.png
+```
+
+The endpoint checks the current `main` snapshot on every request and serves
+only assets in a validated public post's inventory. It takes no repository,
+branch, token, or arbitrary commit input. References retain their commit for
+future snapshot-aware integrations, but the generated URL intentionally uses
+current publication state: an article becoming a draft/deleted immediately
+closes access on the next request. An older page may therefore load the newer
+version of an image. All reads within an individual request use one snapshot.
+
+Supported image extensions are PNG, JPG/JPEG, GIF, WebP, AVIF, and SVG, with a
+5 MiB limit per blob (also applied to Markdown/author reads). Other file types,
+including Markdown, JSON, and HTML, are not served. The endpoint returns binary
+bytes with an explicit image content type, content length, `nosniff`, and a
+same-origin resource policy. SVG document navigation is isolated by a CSP
+sandbox with scripts and external resources blocked. HEAD has the same status
+and headers as GET but no body; it currently downloads the blob to determine the
+exact byte length. There is no redirect to GitHub or private download URL.
+
+Responses use `Cache-Control: no-store`, including failures. No persistent
+server cache, CDN cache, ETag, conditional request, or range handling is added
+yet. Each successful request normally makes five GitHub reads: commit, tree,
+article, author, and image blob. Caching can be added later with an explicit
+publication/revocation policy.
+
+The endpoint returns 404 for invalid paths, unsupported files, missing assets,
+symlinks, or unpublished/missing posts; 413 for oversized blobs; 502 for GitHub
+access/network/upstream failures; 503 for GitHub rate limits; and 500 for
+configuration or invalid-content failures. Error bodies contain no upstream
+payload, repo paths, or credentials. Non-GET/HEAD methods are unsupported.
 
 ## Validation
 
