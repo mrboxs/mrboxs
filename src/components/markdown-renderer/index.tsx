@@ -5,10 +5,14 @@ import type { Components } from 'react-markdown'
 import type { ElementContent } from 'hast'
 import remarkGfm from 'remark-gfm'
 
+import { ContentBlockquote } from '#/components/markdown-renderer/callout'
 import { MarkdownCodeBlock } from '#/components/markdown-renderer/code-block'
 import { ContentLink } from '#/components/markdown-renderer/content-link'
 import { ContentHeading } from '#/components/markdown-renderer/heading'
 import { ContentImage } from '#/components/markdown-renderer/image'
+import { rehypeImageContext } from '#/components/markdown-renderer/rehype-image-context'
+import { remarkCallouts } from '#/components/markdown-renderer/remark-callouts'
+import { markdownTableComponents } from '#/components/markdown-renderer/table'
 import { remarkArticleHeadings } from '#/constants/headings'
 import { emptyPublicContent } from '#/constants/model'
 import type { PreparedPublicContent } from '#/constants/model'
@@ -39,8 +43,14 @@ export function MarkdownRenderer({
 	// React treats replacement renderers as component types; keep them stable on rerenders.
 	const components = useMemo<Components>(
 		() => ({
-			img: ({ src, alt, title }) => (
-				<ContentImage src={src} alt={alt} title={title} assets={assets} />
+			img: ({ node, src, alt, title }) => (
+				<ContentImage
+					src={src}
+					alt={alt}
+					title={title}
+					assets={assets}
+					preview={node?.properties['data-no-image-dialog'] !== true}
+				/>
 			),
 			h1: ({ node, children, ...props }) => (
 				<ContentHeading
@@ -131,17 +141,8 @@ export function MarkdownRenderer({
 					/>
 				)
 			},
-			table: ({ children }) => (
-				<section
-					className="overflow-x-auto"
-					aria-label="Table"
-					// Keyboard users need to scroll wide tables.
-					// oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-					tabIndex={0}
-				>
-					<table className="wrap-normal">{children}</table>
-				</section>
-			),
+			blockquote: ContentBlockquote,
+			...markdownTableComponents,
 		}),
 		[slug, assets, prepared]
 	)
@@ -151,7 +152,8 @@ export function MarkdownRenderer({
 			className="prose max-w-none min-w-0 wrap-anywhere prose-neutral dark:prose-invert prose-a:decoration-transparent prose-a:transition-[text-decoration-color] prose-a:duration-300 prose-a:ease-in-out prose-a:hover:decoration-current prose-a:motion-reduce:transition-none [&_[id]]:scroll-mt-24"
 		>
 			<Markdown
-				remarkPlugins={[remarkGfm, remarkArticleHeadings]}
+				remarkPlugins={[remarkGfm, remarkArticleHeadings, remarkCallouts]}
+				rehypePlugins={[rehypeImageContext]}
 				skipHtml
 				components={components}
 			>

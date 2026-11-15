@@ -149,6 +149,7 @@ describe('blog Markdown renderer', () => {
 		)
 		expect(link.querySelectorAll('img')).toHaveLength(1)
 		expect(link.querySelector('svg')).toBeNull()
+		expect(link.querySelector('button')).toBeNull()
 		expect(find<HTMLImageElement>('img[alt="Remote"]').src).toBe(
 			'https://images.example.test/cover.png'
 		)
@@ -157,6 +158,227 @@ describe('blog Markdown renderer', () => {
 		await actAndFlush(() => images[0].dispatchEvent(new Event('error')))
 		expect(container.querySelector('img[alt="Inline"]')).toBeNull()
 		expect(container.textContent).toContain('Image unavailable: Inline')
+	})
+
+	it('uses shadcn tables without losing alignment, cell formatting or keyboard access', async () => {
+		await render(
+			'| Left | Center | Right |\n| :--- | :---: | ---: |\n| **Bold** | `code` | [Link](https://example.com) |'
+		)
+		const scroll = find<HTMLElement>('[role="region"][aria-label="Table"]')
+		expect(scroll.tabIndex).toBe(0)
+		expect(find('table').getAttribute('data-slot')).toBe('table')
+		expect(
+			[...container.querySelectorAll('th')].map((cell) => cell.style.textAlign)
+		).toEqual(['left', 'center', 'right'])
+		expect(
+			[...container.querySelectorAll('td')].map((cell) => cell.style.textAlign)
+		).toEqual(['left', 'center', 'right'])
+		expect(
+			[...container.querySelectorAll('th')].every(
+				(cell) => cell.scope === 'col'
+			)
+		).toBe(true)
+		expect(find('td strong').textContent).toBe('Bold')
+		expect(find('td code').textContent).toBe('code')
+		expect(find('td a').getAttribute('href')).toBe('https://example.com/')
+		expect(container.querySelector('[node]')).toBeNull()
+	})
+
+	it.each(['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'])(
+		'renders a %s callout as a named shadcn Alert and preserves Markdown content',
+		async (type) => {
+			await render(
+				`> [!${type}]\n> **Keep** [the link](https://example.com).\n>\n> - First\n> - Second`
+			)
+			const callout = find('[data-slot="alert"]')
+			expect(callout.getAttribute('role')).toBe('note')
+			expect(callout.getAttribute('aria-label')?.toUpperCase()).toBe(type)
+			expect(callout.getAttribute('data-callout')).toBe(type.toLowerCase())
+			expect(
+				callout
+					.querySelector('[data-slot="alert-title"]')
+					?.textContent.toUpperCase()
+			).toBe(type)
+			expect(callout.textContent).not.toContain(`[!${type}]`)
+			expect(callout.querySelector('strong')?.textContent).toBe('Keep')
+			expect(callout.querySelector('a')?.href).toBe('https://example.com/')
+			expect(callout.querySelectorAll('li')).toHaveLength(2)
+			expect(callout.querySelector('p p, p div')).toBeNull()
+		}
+	)
+
+	it.each([
+		'> Ordinary **quote**.',
+		'> [!UNKNOWN]\n> Ordinary quote.',
+		'> Text before [!NOTE].',
+		'> [!NOTE] on the same line.',
+		'> `[!NOTE]`\n> Quoted code.',
+		'> \\[!NOTE]\n> Escaped marker.',
+		'> &#91;!NOTE]\n> Entity marker.',
+	])(
+		'keeps ordinary or literal quoted markers as a blockquote: %s',
+		async (content) => {
+			await render(content)
+			expect(container.querySelector('blockquote')).not.toBeNull()
+			expect(container.querySelector('[data-slot="alert"]')).toBeNull()
+		}
+	)
+
+	it('handles empty, nested and separate-paragraph callouts without swallowing adjacent content', async () => {
+		await render(
+			'> [!NOTE]\n\nBetween.\n\n> [!TIP]\n>\n> Paragraph.\n>\n> > [!WARNING]\n> > Nested.\n\nAfter.\n\n```md\n> [!NOTE]\n```'
+		)
+		expect(container.querySelectorAll('[data-slot="alert"]')).toHaveLength(3)
+		expect(
+			find(
+				'[data-callout="note"] [data-slot="alert-description"]'
+			).textContent.trim()
+		).toBe('')
+		expect(
+			find('[data-callout="tip"] [data-callout="warning"]').textContent
+		).toContain('Nested.')
+		expect(container.textContent).toContain('Between.')
+		expect(container.textContent).toContain('After.')
+		expect(find('pre code').textContent).toBe('> [!NOTE]')
+	})
+
+	it('opens an image dialog, labels it, and restores focus after Escape', async () => {
+		await render('![Cover](./cover.png "Cover title")')
+		const trigger = find<HTMLButtonElement>(
+			'button[aria-label="Enlarge image: Cover title"]'
+		)
+		expect(document.querySelector('[role="dialog"]')).toBeNull()
+		await actAndFlush(() => {
+			trigger.focus()
+			trigger.click()
+		})
+		const dialog = document.querySelector('[role="dialog"]')
+		if (!dialog) throw new Error('Missing image dialog')
+		const titleId = dialog.getAttribute('aria-labelledby')
+		expect(titleId && document.getElementById(titleId)?.textContent).toBe(
+			'Cover title'
+		)
+		expect(dialog.querySelector('img')?.getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(dialog.contains(document.activeElement)).toBe(true)
+		await actAndFlush(() =>
+			document.activeElement?.dispatchEvent(
+				new KeyboardEvent('keydown', {
+					key: 'Escape',
+					code: 'Escape',
+					bubbles: true,
+				})
+			)
+		)
+		expect(document.querySelector('[role="dialog"]')).toBeNull()
+		expect(document.activeElement).toBe(trigger)
+	})
+
+	it('keeps the dialog closable on image failure and retries on reopening', async () => {
+		await render('![Cover](./cover.png)')
+		const trigger = find<HTMLButtonElement>(
+			'button[aria-label="Enlarge image: Cover"]'
+		)
+		await actAndFlush(() => trigger.click())
+		const dialog = document.querySelector('[role="dialog"]')
+		if (!dialog) throw new Error('Missing image dialog')
+		await actAndFlush(() =>
+			dialog.querySelector('img')?.dispatchEvent(new Event('error'))
+		)
+		expect(dialog.querySelector('output')?.textContent).toBe(
+			'Image unavailable: Cover'
+		)
+		const close = dialog.querySelector<HTMLButtonElement>(
+			'[data-slot="dialog-close"]'
+		)
+		if (!close) throw new Error('Missing close button')
+		await actAndFlush(() => close.click())
+		expect(document.querySelector('[role="dialog"]')).toBeNull()
+		expect(container.querySelector('img[alt="Cover"]')).not.toBeNull()
+		await actAndFlush(() => trigger.click())
+		expect(document.querySelector('[role="dialog"] img')).not.toBeNull()
+	})
+
+	it('does not nest preview buttons in linked images or heading permalinks', async () => {
+		await render(
+			'[![Linked](./cover.png)](https://example.com)\n\n## *![Heading](./cover.png)*\n\n![Standalone](./cover.png)'
+		)
+		expect(container.querySelector('a button, button button')).toBeNull()
+		expect(
+			container.querySelectorAll('[data-slot="dialog-trigger"]')
+		).toHaveLength(1)
+		expect(
+			find('button[aria-label="Enlarge image: Standalone"] img').getAttribute(
+				'alt'
+			)
+		).toBe('Standalone')
+		expect(find('a[href="https://example.com/"] img').getAttribute('alt')).toBe(
+			'Linked'
+		)
+	})
+
+	it('preserves referenced image links without turning them into preview buttons', async () => {
+		await render(
+			'[*![Reference][image]*][destination]\n\n[image]: ./cover.png\n[destination]: /blog/next'
+		)
+		expect(find('a[href="/blog/next"] img').getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(
+			container.querySelector('a button, [data-slot="dialog-trigger"]')
+		).toBeNull()
+	})
+
+	it('provides a nonempty dialog name even when the image title and alt are blank', async () => {
+		await render('![](./cover.png "")')
+		const trigger = find<HTMLButtonElement>(
+			'button[aria-label="Enlarge image: Article image"]'
+		)
+		await actAndFlush(() => trigger.click())
+		expect(
+			document.querySelector('[data-slot="dialog-title"]')?.textContent
+		).toBe('Article image')
+	})
+
+	it('dismisses an open preview when the article image changes', async () => {
+		await render('![First](https://images.example.test/first.png)')
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('[data-slot="dialog-trigger"]').click()
+		)
+		expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+		await render('![Second](https://images.example.test/second.png)')
+		expect(document.querySelector('[role="dialog"]')).toBeNull()
+		expect(
+			find('button[aria-label="Enlarge image: Second"] img').getAttribute('src')
+		).toBe('https://images.example.test/second.png')
+	})
+
+	it('keeps source offsets and URL/HTML safety inside callouts', async () => {
+		const content =
+			'> [!NOTE]\n> [unsafe](javascript:alert(1))\n>\n> ```ts\n> const value = 1\n> ```\n>\n> <script>alert(1)</script>'
+		const prepared: PreparedPublicContent = {
+			codeBlocks: {
+				[content.indexOf('```')]: {
+					code: 'const value = 1',
+					language: 'ts',
+					tokens: [
+						[
+							{
+								content: 'const value = 1',
+								light: { color: '#123456' },
+								dark: { color: '#abcdef' },
+							},
+						],
+					],
+				},
+			},
+		}
+		await render(content, { prepared })
+		expect(find('[data-slot="alert"] .public-code-token').textContent).toBe(
+			'const value = 1'
+		)
+		expect(container.querySelector('script, a[href^="javascript:"]')).toBeNull()
 	})
 
 	it('recovers image errors and keeps the failure fallback across parent rerenders', async () => {
@@ -322,7 +544,7 @@ describe('blog Markdown renderer', () => {
 
 	it('includes both token palettes in SSR and hydrates without recovering markup', async () => {
 		const content =
-			'```TS\nconst value = 1\n```\n\n[internal](/blog)\n\n![Cover](./cover.png)'
+			'```TS\nconst value = 1\n```\n\n[internal](/blog)\n\n![Cover](./cover.png)\n\n> [!NOTE]\n> **SSR callout**\n\n| Left | Right |\n| :--- | ---: |\n| A | B |'
 		const prepared: PreparedPublicContent = {
 			codeBlocks: {
 				0: {
@@ -345,6 +567,9 @@ describe('blog Markdown renderer', () => {
 		expect(html).toContain('--code-light-color:#123456')
 		expect(html).toContain('--code-dark-color:#abcdef')
 		expect(html).toContain('/api/blog/assets/tulisan-pertama/cover.png')
+		expect(html).toContain('data-slot="alert"')
+		expect(html).toContain('data-slot="table"')
+		expect(html).toContain('data-slot="dialog-trigger"')
 		container.innerHTML = html
 		const recoverable = vi.fn()
 		await act(async () => {

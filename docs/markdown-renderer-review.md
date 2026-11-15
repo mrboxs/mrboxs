@@ -154,11 +154,14 @@ The broader `origin/main` comparison reported two existing warnings: intentional
 sequential server tokenization and a JSON serialization round-trip assertion in
 the tests. Neither was changed or suppressed in this browser pass.
 
-Optional math, Mermaid diagrams, directives, and GitHub callouts remain literal
-text/code/blockquote fallbacks. This is the fixture's stated fallback policy,
-not evidence that those rich extensions are implemented.
+At the time of this browser pass, math, Mermaid diagrams, directives, and GitHub
+callouts used literal text/code/blockquote fallbacks. GitHub callouts were later
+implemented below; math, Mermaid diagrams, and directives still use fallbacks.
 
-## shadcn candidates (not installed)
+## shadcn candidates
+
+Table, Dialog, and Alert were subsequently implemented as described below.
+Code Block, Collapsible, and Separator remain suggestions.
 
 These candidates were checked against the current official `@shadcn` Base UI
 registry. The existing code controls already compose Button, Toggle, and Tooltip.
@@ -175,3 +178,56 @@ registry. The existing code controls already compose Button, Toggle, and Tooltip
 Task-list checkboxes should remain passive unless the product adds a separate
 persistent task model. Swapping them for an interactive Checkbox alone would
 misrepresent editable article content.
+
+## Table, Dialog, and Alert implementation
+
+The renderer now composes the official `@shadcn` Base UI Table, Dialog, and Alert
+components. The page layout, blog API, code highlighting, themes, and task-list
+behavior are unchanged. No additional package dependency was required.
+
+- **Table:** `table`, `thead`, `tbody`, `tr`, `th`, and `td` map to the shadcn
+  components. Column headers keep `scope="col"`; GFM left/center/right alignment
+  remains inline, and body cells can wrap long descriptions. The component's
+  single scroll container is a named, focusable region with a visible focus ring.
+  It remains outside Typography's table styling to avoid competing borders and
+  spacing.
+- **Dialog:** standalone inline and reference images open a larger preview.
+  Dialogs have a title and description, Close and Escape support, focus
+  management, viewport-bounded sizing, and reduced-motion support. Missing
+  thumbnails keep the existing fallback. A preview-load failure leaves the
+  dialog closable and is retried when reopened. Changing the image closes its
+  old preview. Images inside links keep their authored navigation; images in
+  headings stay passive because the heading text is already a permalink.
+- **Alert:** the remark transform recognizes `[!NOTE]`, `[!TIP]`, `[!IMPORTANT]`,
+  `[!WARNING]`, and `[!CAUTION]` only at the start of a blockquote, on a separate
+  marker line. It removes the marker and retains the existing child Markdown
+  nodes, including nested content and code source offsets. Each callout has an
+  icon, title, and description. Caution uses the destructive variant; ordinary
+  quotes, unknown markers, inline/code examples, and escaped/entity markers
+  remain ordinary content. Static article callouts use `role="note"` instead
+  of an assertive live announcement.
+
+Example:
+
+```md
+> [!WARNING]
+> Keep **important details** and [links](https://example.com) in the body.
+
+![Diagram](./images/diagram.png 'Architecture diagram')
+
+| Feature  | Status |
+| :------- | -----: |
+| Markdown |  Ready |
+```
+
+The added DOM regressions cover all five callout types, ordinary and escaped
+quotes, nested/empty callouts, source offsets and HTML/URL safety, table alignment
+and cell content, image dialog opening/Escape/focus restoration, failed previews
+and retry, changing images, and linked/heading/reference images. SSR hydration
+also covers all three new components together. These additions were validated
+with Happy DOM and a production build; the browser measurements above describe
+the earlier renderer pass, not a new visual verification of these components.
+
+Validation passed: format/lint/typecheck, all 292 tests, and the production build.
+React Doctor scored 100/100 when scanning the changes relative to `HEAD`, including
+all newly added untracked components (`--include-untracked`).
