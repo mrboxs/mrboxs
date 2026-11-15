@@ -4,6 +4,7 @@ import type { ComponentPropsWithoutRef } from 'react'
 import { useState } from 'react'
 
 import { IconExternalLink } from '@tabler/icons-react'
+import { cn } from 'cn'
 import type { Element, ElementContent } from 'hast'
 
 import favicon from '#/assets/mrboxs-symbol.svg?url'
@@ -100,7 +101,10 @@ function LinkFavicon({ src }: { src: string }) {
 			loading="lazy"
 			decoding="async"
 			referrerPolicy="no-referrer"
-			className="not-prose me-1 inline-block size-4 object-contain align-[-0.125em]"
+			className={cn(
+				'not-prose me-1 inline-block size-4 object-contain align-[-0.125em]',
+				src === favicon && 'dark:invert'
+			)}
 			ref={(element) => {
 				if (element?.complete) {
 					void element.decode().catch(() => setFailed(true))

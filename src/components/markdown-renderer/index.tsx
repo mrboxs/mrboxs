@@ -139,7 +139,7 @@ export function MarkdownRenderer({
 					// oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex
 					tabIndex={0}
 				>
-					<table>{children}</table>
+					<table className="wrap-normal">{children}</table>
 				</section>
 			),
 		}),
@@ -148,7 +148,7 @@ export function MarkdownRenderer({
 	return (
 		<section
 			aria-label="Article content"
-			className="prose max-w-none min-w-0 wrap-anywhere prose-neutral dark:prose-invert prose-a:decoration-transparent prose-a:transition-[text-decoration-color] prose-a:duration-300 prose-a:ease-in-out prose-a:hover:decoration-current prose-a:motion-reduce:transition-none"
+			className="prose max-w-none min-w-0 wrap-anywhere prose-neutral dark:prose-invert prose-a:decoration-transparent prose-a:transition-[text-decoration-color] prose-a:duration-300 prose-a:ease-in-out prose-a:hover:decoration-current prose-a:motion-reduce:transition-none [&_[id]]:scroll-mt-24"
 		>
 			<Markdown
 				remarkPlugins={[remarkGfm, remarkArticleHeadings]}

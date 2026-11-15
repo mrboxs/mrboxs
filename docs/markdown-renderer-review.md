@@ -105,6 +105,73 @@ vp run build
 vp run doctor --verbose --scope changed
 ```
 
-DOM interactions and hydration use Happy DOM. A production build validates
-bundling and the 500 kB chunk limit. This review does not claim browser visual
-verification, a production deployment, or measured Worker CPU performance.
+The automated interaction and hydration tests use Happy DOM. A production build
+validates bundling and the 500 kB chunk limit. Browser verification follows below;
+there has been no production deployment or Worker CPU benchmark.
+
+## Browser verification, 2026-11-16
+
+Checked the real `/blog/markdown-showcase` article in the shared Chromium browser
+at 320, 390, and 1280 CSS pixels, using both light and dark themes.
+
+- All 161 code blocks matched the server-prepared source exactly, including the
+  empty blocks. The fresh server HTML also contained all 161 blocks with no
+  source mismatches. There were 75 highlighted blocks and 86 plain-text blocks;
+  the latter include intentional plaintext examples and unsupported grammars.
+- All four article images loaded from the public asset endpoint. Inline,
+  reference, and linked images worked. All same-page anchor and footnote
+  destinations existed, with no duplicate IDs or nested links.
+- Both tables retained their content and alignment. All 22 task checkboxes stayed
+  disabled as authored article content. Nested lists, blockquotes, inline code,
+  strikethrough, headings, and separators were visually checked.
+- Real clipboard writes succeeded for normal, long, and empty code, including
+  keyboard activation. Word wrap changed a long block from horizontal scrolling
+  to wrapped text. The wide table could scroll using ArrowRight while focused.
+- Heading permalinks updated the hash and focus. Repeated heading IDs remained
+  distinct. Footnote references and return links worked. Theme switching changed
+  token colors immediately without fetching a different highlighted version.
+- No page-level horizontal overflow appeared at the tested widths. No application
+  error or unhandled rejection was observed during the interactions. The browser
+  log included 404 responses from Google's favicon service for fixture domains;
+  these remove only the decorative favicon. The draft article returned the
+  expected 404 page. These are not failed article-image requests.
+
+Three browser findings were fixed and rechecked:
+
+1. The inherited `wrap-anywhere` made a six-column table shrink and split words
+   into individual letters on mobile. Tables now use normal word wrapping so
+   intrinsic column widths produce scrolling inside the existing wrapper.
+2. The black internal favicon disappeared against the dark background. Only the
+   known internal brand asset is inverted in dark mode; external logo colors
+   remain as supplied.
+3. Native footnote backlinks scrolled their reference behind the fixed header.
+   ID targets within the renderer now share the 96 px heading scroll margin.
+   A browser check placed the returned reference below the 56 px header.
+
+After these fixes, `vp run check`, all 271 tests, and `vp run build` passed.
+React Doctor reported 100/100 for the two files changed relative to `HEAD`.
+The broader `origin/main` comparison reported two existing warnings: intentional
+sequential server tokenization and a JSON serialization round-trip assertion in
+the tests. Neither was changed or suppressed in this browser pass.
+
+Optional math, Mermaid diagrams, directives, and GitHub callouts remain literal
+text/code/blockquote fallbacks. This is the fixture's stated fallback policy,
+not evidence that those rich extensions are implemented.
+
+## shadcn candidates (not installed)
+
+These candidates were checked against the current official `@shadcn` Base UI
+registry. The existing code controls already compose Button, Toggle, and Tooltip.
+
+| Markdown/content | Candidate                                                             | Benefit and integration constraint                                                                                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tables           | [Table](https://ui.shadcn.com/docs/components/base/table)             | Consistent cells, row hover, borders and scrolling. Preserve authored GFM alignment and allow long prose cells to wrap. A Data Table with sorting/filtering is unnecessary for ordinary article tables.                 |
+| Fenced code      | [Code Block](https://ui.shadcn.com/docs/components/base/code-block)   | Composable header, title, actions, line numbers and highlighted/diff lines. Reuse the existing server tokens and robust copy feedback; the registry's client highlighting hook must not duplicate Shiki in the browser. |
+| Article images   | [Dialog](https://ui.shadcn.com/docs/components/base/dialog)           | Click to open a larger image, with keyboard dismissal and focus management. Requires a named image-viewer wrapper; retain linked-image navigation. Dialog itself does not supply pan/zoom.                              |
+| GitHub callouts  | [Alert](https://ui.shadcn.com/docs/components/base/alert)             | Give NOTE/TIP/IMPORTANT/WARNING/CAUTION distinct structure. Requires a Markdown AST transform to recognize markers; ordinary quotations should remain blockquotes.                                                      |
+| Very long code   | [Collapsible](https://ui.shadcn.com/docs/components/base/collapsible) | An explicit expand/collapse control can shorten long excerpts. Optional behavior; copying must still use the entire source.                                                                                             |
+| Horizontal rules | [Separator](https://ui.shadcn.com/docs/components/base/separator)     | Small consistency improvement using the already installed component. Preserve the non-decorative thematic-break semantics. This adds styling consistency, not interaction.                                              |
+
+Task-list checkboxes should remain passive unless the product adds a separate
+persistent task model. Swapping them for an interactive Checkbox alone would
+misrepresent editable article content.
