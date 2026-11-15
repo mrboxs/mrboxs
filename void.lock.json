@@ -1,12 +1,18 @@
 {
 	"version": 1,
 	"source": {
-		"name": "mrboxs"
+		"name": "mrboxs",
+		"routes": [],
+		"workers_dev": true,
+		"preview_urls": true
 	},
 	"resolved": {
+		"name": "mrboxs",
 		"account_id": "af82eb1ef0fd1d756fe34d59260dd2ec",
 		"compatibility_date": "2026-02-24",
-		"name": "mrboxs"
+		"routes": [],
+		"workers_dev": true,
+		"preview_urls": true
 	},
-	"text": "{\n  \"account_id\": \"af82eb1ef0fd1d756fe34d59260dd2ec\",\n  \"compatibility_date\": \"2026-02-24\",\n  \"name\": \"mrboxs\"\n}\n"
+	"text": "{\n  \"name\": \"mrboxs\",\n  \"account_id\": \"af82eb1ef0fd1d756fe34d59260dd2ec\",\n  \"compatibility_date\": \"2026-02-24\",\n  \"routes\": [],\n  \"workers_dev\": true,\n  \"preview_urls\": true\n}\n"
 }
