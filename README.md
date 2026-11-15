@@ -1,5 +1,8 @@
 TanStack Start app with Void on Cloudflare Workers, using Vite+ and Bun.
 
+The server-only GitHub blog reader and its credential/asset integration contract
+are documented in [Blog content service](docs/blog-content.md).
+
 # Getting Started
 
 Install the [global Vite+ CLI](https://viteplus.dev/guide/#install-vp-globally) before running project commands. On macOS or Linux:
