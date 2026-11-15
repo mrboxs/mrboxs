@@ -1,0 +1,359 @@
+// @vitest-environment happy-dom
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRoute,
+	createRouter,
+	RouterContextProvider,
+} from '@tanstack/react-router'
+
+import { act } from 'react'
+import type { ComponentProps } from 'react'
+import { createRoot, hydrateRoot } from 'react-dom/client'
+import type { Root } from 'react-dom/client'
+import { renderToString } from 'react-dom/server'
+
+import favicon from '#/assets/mrboxs-symbol.svg?url'
+import { MarkdownRenderer } from '#/components/markdown-renderer'
+import { articleHeadings } from '#/constants/headings'
+import type { PreparedPublicContent } from '#/constants/model'
+
+import { blogPost } from '../helpers/blog'
+import { actAndFlush } from '../helpers/react'
+
+let root: Root | undefined
+let container: HTMLDivElement
+let router: ReturnType<typeof createRouter>
+
+beforeEach(async () => {
+	vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+	container = document.createElement('div')
+	document.body.appendChild(container)
+	const rootRoute = createRootRoute()
+	const postRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: '/blog/$slug',
+	})
+	router = createRouter({
+		routeTree: rootRoute.addChildren([postRoute]),
+		history: createMemoryHistory({
+			initialEntries: ['/blog/tulisan-pertama?ref=reader'],
+		}),
+		origin: 'https://preview.example.test',
+	})
+	await router.load()
+})
+
+afterEach(async () => {
+	await actAndFlush(() => root?.unmount())
+	root = undefined
+	router.history.destroy()
+	container.remove()
+	vi.unstubAllGlobals()
+	vi.restoreAllMocks()
+})
+
+function view(
+	content: string,
+	props: Partial<ComponentProps<typeof MarkdownRenderer>> = {}
+) {
+	return (
+		<RouterContextProvider router={router}>
+			<MarkdownRenderer
+				slug={blogPost.slug}
+				content={content}
+				assets={blogPost.assets}
+				{...props}
+			/>
+		</RouterContextProvider>
+	)
+}
+
+async function render(
+	content: string,
+	props: Partial<ComponentProps<typeof MarkdownRenderer>> = {}
+) {
+	root ??= createRoot(container)
+	await actAndFlush(() => root?.render(view(content, props)))
+}
+
+function find<T extends Element>(selector: string): T {
+	const element = container.querySelector<T>(selector)
+	if (!element) throw new Error(`Missing ${selector}`)
+	return element
+}
+
+describe('blog Markdown renderer', () => {
+	it('renders GFM and escapes code while dropping HTML, MDX and unsafe URLs', async () => {
+		await render(
+			'# Title\n\n~~old~~ and `inline`\n\n- [x] Done\n\n| Name | Value |\n| --- | --- |\n| A | B |\n\n<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n<Component />\n\n[bad](javascript:alert(1))\n\n![bad](data:text/html,test)\n\n```html\n<script>alert(2)</script>\n```'
+		)
+		expect(find('h2').textContent).toBe('Title')
+		expect(find('del').textContent).toBe('old')
+		expect(find<HTMLInputElement>('input[type="checkbox"]').checked).toBe(true)
+		expect(find<HTMLInputElement>('input[type="checkbox"]').disabled).toBe(true)
+		expect(find('table').textContent).toContain('Name')
+		expect(find('pre code').textContent).toBe('<script>alert(2)</script>')
+		expect(
+			container.querySelector(
+				'h1, script, component, [onerror], a[href^="javascript:"], img[src^="data:"]'
+			)
+		).toBeNull()
+		expect(container.textContent).toContain('Image unavailable: bad')
+	})
+
+	it('resolves internal links from the current origin and blog path without mention chips', async () => {
+		await render(
+			'[relative](next?ref=blog#setup) [same](https://preview.example.test/blog/next) [external](https://example.com) [email](mailto:me@example.com) [fragment](#setup) [collection](/collections/tools)'
+		)
+		expect(find('a[href="/blog/next?ref=blog#setup"]').textContent).toBe(
+			'relative'
+		)
+		expect(
+			find<HTMLImageElement>('a[href="/blog/next"] img').getAttribute('src')
+		).toBe(favicon)
+		const external = find<HTMLAnchorElement>('a[href="https://example.com/"]')
+		expect(external.target).toBe('_blank')
+		expect(external.rel).toBe('noopener noreferrer')
+		expect(external.textContent).toContain('opens in a new tab')
+		expect(find<HTMLAnchorElement>('a[href^="mailto:"]').target).toBe('')
+		expect(find('a[href="#setup"]').textContent).toBe('fragment')
+		expect(find('a[href="/collections/tools"]').textContent).toBe('collection')
+		expect(
+			container.querySelector(
+				'[data-project-mention], [data-collection-mention]'
+			)
+		).toBeNull()
+		await act(async () => {
+			find<HTMLAnchorElement>('a[href="/blog/next?ref=blog#setup"]').click()
+			await router.load()
+		})
+		expect(router.state.location.pathname).toBe('/blog/next')
+		expect(router.state.location.search).toEqual({ ref: 'blog' })
+		expect(router.state.location.hash).toBe('setup')
+	})
+
+	it('uses the public asset endpoint for inline, reference and linked images', async () => {
+		await render(
+			'![Inline](./cover.png) ![Reference][cover]\n\n[![Badge](./cover.png)](./cover.png)\n\n![Remote](https://images.example.test/cover.png)\n\n![Missing](./missing.png) ![Traversal](../cover.png)\n\n[cover]: cover.png'
+		)
+		const images = container.querySelectorAll(
+			'img[src="/api/blog/assets/tulisan-pertama/cover.png"]'
+		)
+		expect(images).toHaveLength(3)
+		const link = find<HTMLAnchorElement>(
+			'a[href="/api/blog/assets/tulisan-pertama/cover.png"]'
+		)
+		expect(link.querySelectorAll('img')).toHaveLength(1)
+		expect(link.querySelector('svg')).toBeNull()
+		expect(find<HTMLImageElement>('img[alt="Remote"]').src).toBe(
+			'https://images.example.test/cover.png'
+		)
+		expect(container.textContent).toContain('Image unavailable: Missing')
+		expect(container.textContent).toContain('Image unavailable: Traversal')
+		await actAndFlush(() => images[0].dispatchEvent(new Event('error')))
+		expect(container.querySelector('img[alt="Inline"]')).toBeNull()
+		expect(container.textContent).toContain('Image unavailable: Inline')
+	})
+
+	it('recovers image errors and keeps the failure fallback across parent rerenders', async () => {
+		await render('![Broken](https://images.example.test/broken.png)')
+		await actAndFlush(() => find('img').dispatchEvent(new Event('error')))
+		await render('![Broken](https://images.example.test/broken.png)')
+		expect(container.querySelector('img')).toBeNull()
+		await render('![Fixed](https://images.example.test/fixed.png)')
+		expect(find<HTMLImageElement>('img[alt="Fixed"]').src).toBe(
+			'https://images.example.test/fixed.png'
+		)
+	})
+
+	it('resolves escaped asset names without allowing encoded traversal', async () => {
+		const assets = {
+			'images/café cover.png': {
+				commit: 'a'.repeat(40),
+				path: `posts/${blogPost.slug}/images/café cover.png`,
+			},
+		}
+		await render(
+			'![Cover](<./images/café cover.png>)\n\n[Open](<./images/café cover.png>)\n\n![Escape](%2e%2e/images/caf%C3%A9%20cover.png)\n\n![Double](images/caf%25C3%25A9%2520cover.png)',
+			{ assets }
+		)
+		expect(find<HTMLImageElement>('img[alt="Cover"]').getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/images/caf%C3%A9%20cover.png'
+		)
+		expect(
+			find(
+				'a[href="/api/blog/assets/tulisan-pertama/images/caf%C3%A9%20cover.png"]'
+			).textContent
+		).toBe('Open')
+		expect(container.textContent).toContain('Image unavailable: Escape')
+		expect(container.textContent).toContain('Image unavailable: Double')
+	})
+
+	it('preserves the IDs, labels and backlinks emitted for GFM footnotes', async () => {
+		await render('A note[^one].\n\n[^one]: Footnote content.')
+		const reference = find<HTMLAnchorElement>('a[data-footnote-ref]')
+		const backlink = find<HTMLAnchorElement>('a[data-footnote-backref]')
+		expect(reference.id).toBe('user-content-fnref-one')
+		expect(reference.getAttribute('aria-describedby')).toBe('footnote-label')
+		expect(backlink.hash).toBe(`#${reference.id}`)
+		expect(backlink.getAttribute('aria-label')).toContain('Back to reference')
+		expect(find(reference.hash).textContent).toContain('Footnote content.')
+	})
+
+	it('handles an image that failed to load before hydration', async () => {
+		vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(
+			true
+		)
+		vi.spyOn(HTMLImageElement.prototype, 'decode').mockRejectedValue(
+			new Error('cached failure')
+		)
+		await render('![Broken](https://images.example.test/broken.png)')
+		expect(container.querySelector('img')).toBeNull()
+		expect(container.textContent).toContain('Image unavailable: Broken')
+	})
+
+	it('matches heading IDs to the outline and avoids nested links in formatted headings', async () => {
+		const content =
+			'# Intro\n\n## *Read [docs](https://example.com)* and `code`\n\n## Intro\n\n## ![Diagram](./cover.png)'
+		await render(content)
+		expect(
+			[...container.querySelectorAll('h2, h3')].map((heading) => heading.id)
+		).toEqual(articleHeadings(content).map(({ id }) => id))
+		expect(container.querySelector('a a')).toBeNull()
+		expect(find('a[aria-label="Link to Diagram"]').getAttribute('href')).toBe(
+			'/blog/tulisan-pertama?ref=reader#diagram'
+		)
+	})
+
+	it.each([true, false])(
+		'scrolls and focuses a heading with reduced motion=%s while preserving search',
+		async (reducedMotion) => {
+			vi.spyOn(window, 'matchMedia').mockImplementation(
+				() => ({ matches: reducedMotion }) as MediaQueryList
+			)
+			await render('## Setup')
+			const heading = find<HTMLElement>('h2')
+			const scroll = vi
+				.spyOn(heading, 'scrollIntoView')
+				.mockImplementation(() => undefined)
+			await act(async () => {
+				find<HTMLAnchorElement>('a[aria-label="Link to Setup"]').click()
+				await router.load()
+			})
+			expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+			expect(router.state.location.search).toEqual({ ref: 'reader' })
+			expect(router.state.location.hash).toBe('setup')
+			expect(scroll).toHaveBeenCalledWith({
+				block: 'start',
+				behavior: reducedMotion ? 'instant' : 'smooth',
+			})
+			expect(document.activeElement).toBe(heading)
+		}
+	)
+
+	it('copies whitespace exactly, announces failure, and keeps word wrap across rerenders', async () => {
+		const code = '\tline  \n\n'
+		const content = `\`\`\`unknown\n${code}\n\`\`\``
+		const writeText = vi.fn().mockResolvedValue(undefined)
+		vi.stubGlobal('navigator', { clipboard: { writeText } })
+		await render(content)
+		expect(find('pre code').textContent).toBe(code)
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('button[aria-label="Word wrap"]').click()
+		)
+		expect(find('pre').classList.contains('whitespace-pre-wrap')).toBe(true)
+		expect(
+			find('button[aria-label="Word wrap"]').getAttribute('aria-pressed')
+		).toBe('true')
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('button[aria-label="Copy code"]').click()
+		)
+		expect(writeText).toHaveBeenCalledExactlyOnceWith(code)
+		expect(find('output').textContent).toBe('Code copied to clipboard.')
+		await render(content)
+		expect(find('pre').classList.contains('whitespace-pre-wrap')).toBe(true)
+		expect(find('output').textContent).toBe('Code copied to clipboard.')
+		writeText.mockRejectedValueOnce(new Error('denied'))
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('button[aria-label="Copy code"]').click()
+		)
+		expect(find('output').textContent).toContain('Unable to copy code.')
+	})
+
+	it('ignores stale prepared blocks rather than replacing the Markdown source', async () => {
+		const prepared: PreparedPublicContent = {
+			codeBlocks: {
+				0: {
+					code: 'old',
+					language: 'js',
+					tokens: [[{ content: 'old', light: {}, dark: {} }]],
+				},
+			},
+		}
+		await render('```js\nnew\n```', { prepared })
+		expect(find('pre code').textContent).toBe('new')
+	})
+
+	it('ignores an older clipboard result after a newer copy attempt finishes', async () => {
+		let finishFirst!: () => void
+		const first = new Promise<void>((resolve) => {
+			finishFirst = resolve
+		})
+		const writeText = vi
+			.fn()
+			.mockReturnValueOnce(first)
+			.mockRejectedValueOnce(new Error('denied'))
+		vi.stubGlobal('navigator', { clipboard: { writeText } })
+		await render('```\ncode\n```')
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('button[aria-label="Copy code"]').click()
+		)
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('button[aria-label="Copy code"]').click()
+		)
+		expect(find('output').textContent).toContain('Unable to copy code.')
+		await actAndFlush(finishFirst)
+		expect(find('output').textContent).toContain('Unable to copy code.')
+	})
+
+	it('includes both token palettes in SSR and hydrates without recovering markup', async () => {
+		const content =
+			'```TS\nconst value = 1\n```\n\n[internal](/blog)\n\n![Cover](./cover.png)'
+		const prepared: PreparedPublicContent = {
+			codeBlocks: {
+				0: {
+					code: 'const value = 1',
+					language: 'ts',
+					tokens: [
+						[
+							{
+								content: 'const value = 1',
+								light: { color: '#123456', fontStyle: 2 },
+								dark: { color: '#abcdef', fontStyle: 1 },
+							},
+						],
+					],
+				},
+			},
+		}
+		const props = { prepared }
+		const html = renderToString(view(content, props))
+		expect(html).toContain('--code-light-color:#123456')
+		expect(html).toContain('--code-dark-color:#abcdef')
+		expect(html).toContain('/api/blog/assets/tulisan-pertama/cover.png')
+		container.innerHTML = html
+		const recoverable = vi.fn()
+		await act(async () => {
+			root = hydrateRoot(container, view(content, props), {
+				onRecoverableError: recoverable,
+			})
+			await Promise.resolve()
+		})
+		expect(recoverable).not.toHaveBeenCalled()
+		expect(find('pre code').textContent).toBe('const value = 1')
+	})
+})

@@ -111,7 +111,7 @@ article 404 and use suitable server-error responses for the other classes.
 ## Asset endpoint
 
 `assets` keys are paths relative to the article folder, such as `cover.png` or
-`images/diagram.png`. A future Markdown renderer can call
+`images/diagram.png`. The Markdown renderer calls
 `resolvePostAsset(post, './cover.png')` for image destinations, including those
 from reference images. It accepts an optional leading `./`, verifies membership
 in the post's inventory, and rejects traversal, absolute URLs/paths, backslashes,
@@ -145,6 +145,12 @@ sandbox with scripts and external resources blocked. HEAD has the same status
 and headers as GET but no body; it currently downloads the blob to determine the
 exact byte length on a cold cache; a warm HEAD uses the same cached bytes as GET.
 There is no redirect to GitHub or private download URL.
+
+The blog renderer and its server preparation are described in
+[markdown-renderer-review.md](./markdown-renderer-review.md). The oRPC detail
+response adds a `prepared` field for code tokens; this source service continues
+returning an untouched `BlogPost`. Rendering never bypasses the asset endpoint's
+publication checks.
 
 Responses use `Cache-Control: no-store`, including failures. The internal cache
 does not change browser/CDN response caching, add ETags, conditional requests, or

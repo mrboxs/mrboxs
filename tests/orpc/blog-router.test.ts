@@ -66,13 +66,30 @@ describe('blog oRPC router', () => {
 		expect(getPostBySlug).not.toHaveBeenCalled()
 	})
 
-	it('maps detailed path params to the service and returns the untouched article', async () => {
+	it('maps detailed path params and adds rendering data without rewriting the article', async () => {
 		vi.mocked(getPostBySlug).mockResolvedValue(post)
 		const response = await request('/blogs/tulisan-pertama')
 		expect(response.status).toBe(200)
-		expect(await response.json()).toEqual(post)
+		expect(await response.json()).toEqual({
+			...post,
+			prepared: { codeBlocks: {} },
+		})
 		expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith('tulisan-pertama')
 		expect(listPosts).not.toHaveBeenCalled()
+	})
+
+	it('includes serializable code blocks through the output schema', async () => {
+		const code = '\tconst value = 1;  \n\n'
+		const body = `Intro\n\n\`\`\`TS\n${code}\n\`\`\``
+		vi.mocked(getPostBySlug).mockResolvedValue({ ...post, body })
+		const response = await request('/blogs/tulisan-pertama')
+		expect(response.status).toBe(200)
+		expect(await response.json()).toMatchObject({
+			body,
+			prepared: {
+				codeBlocks: { [body.indexOf('```')]: { code, language: 'ts' } },
+			},
+		})
 	})
 
 	it('rejects invalid slugs before invoking the source service', async () => {

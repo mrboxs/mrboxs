@@ -84,7 +84,7 @@ async function renderPath(path: string) {
 	})
 }
 
-describe('plain-text blog routes', () => {
+describe('blog routes', () => {
 	it('renders list data through the oRPC Query cache and follows the detail link', async () => {
 		await renderPath('/blog')
 		expect(container.textContent).toContain(blogMetadata.title)
@@ -100,16 +100,25 @@ describe('plain-text blog routes', () => {
 			await router.load()
 		})
 		expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
-		expect(container.querySelector('pre')?.textContent).toBe(blogPost.body)
+		expect(container.querySelector('article strong')?.textContent).toBe(
+			'Teks tebal'
+		)
 		expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith(blogMetadata.slug)
 	})
 
-	it('renders Markdown and HTML source as text without executing or rendering it', async () => {
+	it('renders Markdown and local assets while discarding raw HTML', async () => {
 		await renderPath('/blog/tulisan-pertama')
-		expect(container.querySelector('pre')?.textContent).toBe(blogPost.body)
+		expect(container.querySelector('article h2')?.textContent).toBe(
+			'Heading mentah'
+		)
 		expect(container.querySelector('article script')).toBeNull()
-		expect(container.querySelector('article img')).toBeNull()
-		expect(container.querySelector('article strong')).toBeNull()
+		expect(container.querySelector('article img')?.getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(container.querySelector('article strong')?.textContent).toBe(
+			'Teks tebal'
+		)
+		expect(container.querySelectorAll('article')).toHaveLength(1)
 		expect(getPostBySlug).toHaveBeenCalledTimes(1)
 	})
 

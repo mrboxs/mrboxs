@@ -15,6 +15,8 @@ export const blogMetadata: PostMetadata = {
 
 export const blogPost: BlogPost = {
 	...blogMetadata,
-	body: '## Heading mentah\n\n**Teks tebal**\n<script>alert("test")</script>\n![Cover](./cover.png)\n',
+	body: '## Heading mentah\n\n**Teks tebal**\n\n<script>alert("test")</script>\n\n![Cover](./cover.png)\n',
 	assets: { 'cover.png': blogMetadata.cover.src },
 }
+
+export const renderedBlogPost = { ...blogPost, prepared: { codeBlocks: {} } }

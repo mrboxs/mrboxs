@@ -8,6 +8,7 @@ import {
 	BlogNotFound,
 	BlogPending,
 } from '#/components/blog/blog-feedback'
+import { MarkdownRenderer } from '#/components/markdown-renderer'
 
 export const Route = createFileRoute('/blog/$slug')({
 	loader: async ({ context, params }) => {
@@ -65,9 +66,12 @@ function BlogDetailPage() {
 				</p>
 				<p>Tags: {post.tags.join(', ') || '—'}</p>
 				<p className="wrap-anywhere">Cover: {post.cover.src.path}</p>
-				<pre className="font-sans wrap-anywhere whitespace-pre-wrap">
-					{post.body}
-				</pre>
+				<MarkdownRenderer
+					slug={post.slug}
+					content={post.body}
+					assets={post.assets}
+					prepared={post.prepared}
+				/>
 			</article>
 		</main>
 	)

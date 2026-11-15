@@ -27,9 +27,40 @@ const blogMetadataSchema = z.object({
 	author: blogAuthorSchema,
 	cover: z.object({ src: blogAssetSchema, alt: textSchema }),
 })
+const codeTokenStyleSchema = z.object({
+	color: z.string().optional(),
+	bgColor: z.string().optional(),
+	fontStyle: z.number().int().optional(),
+})
 const blogPostSchema = blogMetadataSchema.extend({
 	body: z.string(),
 	assets: z.record(z.string(), blogAssetSchema),
+	prepared: z.object({
+		codeBlocks: z.record(
+			z.string(),
+			z.object({
+				code: z.string(),
+				language: z.string(),
+				tokens: z
+					.array(
+						z.array(
+							z.object({
+								content: z.string(),
+								light: codeTokenStyleSchema,
+								dark: codeTokenStyleSchema,
+							})
+						)
+					)
+					.optional(),
+				colors: z
+					.object({
+						light: codeTokenStyleSchema,
+						dark: codeTokenStyleSchema,
+					})
+					.optional(),
+			})
+		),
+	}),
 })
 
 export const blogContract = {
