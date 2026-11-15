@@ -7,6 +7,13 @@ import { z } from 'zod'
 
 import { normalizePostAssetPath, resolvePostAsset } from '#/lib/blog'
 import type { BlogAsset, BlogAuthor, BlogPost, PostMetadata } from '#/lib/blog'
+import {
+	createBlogCache,
+	immutableTtlSeconds,
+	publicationTtlSeconds,
+	workerBlogCacheStore,
+} from '#/lib/blog-cache.server'
+import type { BlogCacheStore } from '#/lib/blog-cache.server'
 
 const repository = {
 	owner: 'mrboxs',
@@ -71,6 +78,29 @@ const treeSchema = z.object({
 const blobSchema = z.object({
 	encoding: z.literal('base64'),
 	content: z.string(),
+})
+const snapshotSchema = z
+	.object({ commit: commitSchema, tree: treeSchema })
+	.refine(
+		({ tree }) =>
+			new Set(tree.tree.map((entry) => entry.path)).size === tree.tree.length
+	)
+const parsedPostSchema = z.object({
+	metadata: frontmatterSchema,
+	body: z.string(),
+})
+const imageBlobSchema = blobSchema.extend({
+	content: z
+		.string()
+		.max(Math.ceil(maxBlobBytes / 3) * 4)
+		.regex(/^[A-Za-z0-9+/]*={0,2}$/)
+		.refine(
+			(value) =>
+				value.length % 4 === 0 &&
+				(value.length / 4) * 3 -
+					(value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0) <=
+					maxBlobBytes
+		),
 })
 const githubErrorSchema = z.object({
 	status: z.number().optional(),
@@ -208,38 +238,44 @@ function parsePost(source: string, slug: string) {
 }
 
 /** Dependency injection is for server tests; repository coordinates stay fixed. */
-export function createBlogContentService(client: Octokit) {
+export function createBlogContentService(
+	client: Octokit,
+	options: { cache?: BlogCacheStore; now?: () => number } = {}
+) {
+	const cached = createBlogCache(options.cache, options.now)
 	async function snapshot() {
-		const commit = sourceData(
-			commitSchema,
-			await githubRequest((signal) =>
-				client.repos.getCommit({
-					...repository,
-					ref: branch,
-					request: { signal },
-				})
-			)
-		)
-		const tree = sourceData(
-			treeSchema,
-			await githubRequest((signal) =>
-				client.git.getTree({
-					...repository,
-					tree_sha: commit.commit.tree.sha,
-					recursive: '1',
-					request: { signal },
-				})
-			)
+		const { commit, tree } = await cached(
+			`publication/${branch}`,
+			publicationTtlSeconds,
+			snapshotSchema,
+			async () => {
+				const revision = sourceData(
+					commitSchema,
+					await githubRequest((signal) =>
+						client.repos.getCommit({
+							...repository,
+							ref: branch,
+							request: { signal },
+						})
+					)
+				)
+				const inventory = await githubRequest((signal) =>
+					client.git.getTree({
+						...repository,
+						tree_sha: revision.commit.tree.sha,
+						recursive: '1',
+						request: { signal },
+					})
+				)
+				return sourceData(snapshotSchema, { commit: revision, tree: inventory })
+			}
 		)
 		const files = new Map(tree.tree.map((entry) => [entry.path, entry]))
-		if (files.size !== tree.tree.length) {
-			throw new BlogSourceError('invalid-response')
-		}
 		// These maps live for one operation, never across requests or commits.
 		const blobs = new Map<string, Promise<Uint8Array<ArrayBuffer>>>()
 		const authors = new Map<string, Promise<BlogAuthor>>()
 
-		function readBytes(path: string): Promise<Uint8Array<ArrayBuffer>> {
+		function regularFile(path: string) {
 			const entry = files.get(path)
 			if (
 				entry?.type !== 'blob' ||
@@ -250,36 +286,54 @@ export function createBlogContentService(client: Octokit) {
 			if (entry.size !== undefined && entry.size > maxBlobBytes) {
 				throw new BlogAssetTooLargeError()
 			}
+			return entry
+		}
+
+		function readBytes(
+			path: string,
+			image = false
+		): Promise<Uint8Array<ArrayBuffer>> {
+			const entry = regularFile(path)
 			let pending = blobs.get(entry.sha)
 			if (!pending) {
-				pending = githubRequest((signal) =>
-					client.git.getBlob({
-						...repository,
-						file_sha: entry.sha,
-						request: { signal },
-					})
-				).then((data) => {
+				async function loadBlob() {
+					const data = await githubRequest((signal) =>
+						client.git.getBlob({
+							...repository,
+							file_sha: entry.sha,
+							request: { signal },
+						})
+					)
 					const blob = sourceData(blobSchema, data)
+					blob.content = blob.content.replace(/\s/g, '')
 					// Bound decoded allocation even if tree size is missing or inaccurate.
-					if (
-						blob.content.replace(/\s/g, '').length >
-						Math.ceil(maxBlobBytes / 3) * 4
-					) {
+					if (blob.content.length > Math.ceil(maxBlobBytes / 3) * 4) {
 						throw new BlogAssetTooLargeError()
 					}
-					let bytes: Uint8Array<ArrayBuffer>
+					let binary: string
 					try {
-						bytes = Uint8Array.from(atob(blob.content), (char) =>
-							char.charCodeAt(0)
-						)
+						binary = atob(blob.content)
 					} catch {
 						throw new BlogSourceError('invalid-response')
 					}
-					if (bytes.byteLength > maxBlobBytes) {
+					if (binary.length > maxBlobBytes) {
 						throw new BlogAssetTooLargeError()
 					}
-					return bytes
-				})
+					return blob
+				}
+				// Only an image that passed the publication + membership gate uses blob caching.
+				pending = (
+					image
+						? cached(
+								`image/${entry.sha}`,
+								immutableTtlSeconds,
+								imageBlobSchema,
+								async () => sourceData(imageBlobSchema, await loadBlob())
+							)
+						: loadBlob()
+				).then((blob) =>
+					Uint8Array.from(atob(blob.content), (char) => char.charCodeAt(0))
+				)
 				blobs.set(entry.sha, pending)
 			}
 			return pending
@@ -296,28 +350,32 @@ export function createBlogContentService(client: Octokit) {
 
 		function readAuthor(id: string): Promise<BlogAuthor> {
 			const path = `authors/${id}.json`
+			const entry = regularFile(path)
 			let pending = authors.get(id)
 			if (!pending) {
-				pending = readText(path).then((source) => {
-					let data: unknown
-					try {
-						data = JSON.parse(source)
-					} catch {
-						throw new InvalidBlogContentError(path, 'JSON')
+				pending = cached(
+					`author/${entry.sha}`,
+					immutableTtlSeconds,
+					authorSchema,
+					async () => {
+						const source = await readText(path)
+						let data: unknown
+						try {
+							data = JSON.parse(source)
+						} catch {
+							throw new InvalidBlogContentError(path, 'JSON')
+						}
+						return contentData(authorSchema, data, path, 'author')
 					}
-					return { id, ...contentData(authorSchema, data, path, 'author') }
-				})
+				).then((author) => ({ id, ...author }))
 				authors.set(id, pending)
 			}
 			return pending
 		}
 
 		async function readPost(slug: string): Promise<BlogPost | undefined> {
-			const { metadata, body } = parsePost(
-				await readText(`posts/${slug}/index.md`),
-				slug
-			)
-			if (metadata.draft) return undefined
+			const path = `posts/${slug}/index.md`
+			const articleFile = regularFile(path)
 			const prefix = `posts/${slug}/`
 			const assets: Record<string, BlogAsset> = Object.fromEntries(
 				tree.tree
@@ -333,10 +391,27 @@ export function createBlogContentService(client: Octokit) {
 						{ commit: commit.sha, path: entry.path },
 					])
 			)
-			const cover = resolvePostAsset({ assets }, metadata.cover.src)
-			if (!cover || !assetContentType(cover.path)) {
-				throw new InvalidBlogContentError(`${prefix}index.md`, 'cover.src')
+			function coverFor(metadata: z.infer<typeof frontmatterSchema>) {
+				const cover = resolvePostAsset({ assets }, metadata.cover.src)
+				if (!cover || !assetContentType(cover.path)) {
+					throw new InvalidBlogContentError(path, 'cover.src')
+				}
+				return cover
 			}
+			const { metadata, body } = await cached(
+				`post/${commit.sha}/${slug}/${articleFile.sha}`,
+				immutableTtlSeconds,
+				parsedPostSchema.refine((post) => post.metadata.slug === slug),
+				async () => {
+					const parsed = parsePost(await readText(path), slug)
+					if (!parsed.metadata.draft) {
+						coverFor(parsed.metadata)
+						await readAuthor(parsed.metadata.author)
+					}
+					return parsed
+				}
+			)
+			if (metadata.draft) return undefined
 			return {
 				title: metadata.title,
 				slug,
@@ -344,7 +419,7 @@ export function createBlogContentService(client: Octokit) {
 				publishedAt: metadata.publishedAt,
 				tags: metadata.tags,
 				author: await readAuthor(metadata.author),
-				cover: { src: cover, alt: metadata.cover.alt },
+				cover: { src: coverFor(metadata), alt: metadata.cover.alt },
 				body,
 				assets,
 			}
@@ -364,7 +439,7 @@ export function createBlogContentService(client: Octokit) {
 			const post = await readPost(slug)
 			const asset = post ? resolvePostAsset(post, path) : undefined
 			if (!asset) throw new AssetNotFoundError()
-			return { bytes: await readBytes(asset.path), contentType }
+			return { bytes: await readBytes(asset.path, true), contentType }
 		},
 		async listPosts(): Promise<Array<PostMetadata>> {
 			const { files, readPost } = await snapshot()
@@ -411,7 +486,8 @@ function configuredService() {
 				warn: () => undefined,
 				error: () => undefined,
 			},
-		})
+		}),
+		{ cache: workerBlogCacheStore }
 	)
 }
 
