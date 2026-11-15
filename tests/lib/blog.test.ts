@@ -1229,6 +1229,7 @@ describe('blog asset HTTP endpoint', () => {
 		expect(fetch).toHaveBeenCalledTimes(10)
 	})
 
+	// Repeated 5 MiB/base64 copies can exceed 5 seconds on shared CI runners.
 	it('round-trips an image exactly at 5 MiB but rejects an oversized cached payload before serving it', async () => {
 		const workerCache = mockWorkersCache()
 		const { fetch } = setup()
@@ -1265,7 +1266,7 @@ describe('blog asset HTTP endpoint', () => {
 		)
 		expect((await request()).status).toBe(413)
 		expect(fetch).toHaveBeenCalledTimes(6)
-	})
+	}, 15_000)
 
 	it('retains the 5 MiB decoded limit when the tree omits image size, without caching oversized bytes', async () => {
 		const workerCache = mockWorkersCache()
