@@ -212,6 +212,39 @@ describe('blog content service', () => {
 		await expect(service.listPosts()).resolves.toEqual([])
 	})
 
+	it.each(['notes.txt', 'page.html', 'metadata.json', 'document.pdf'])(
+		'rejects an existing non-image cover %s in detail and list',
+		async (filename) => {
+			const { service, files } = fixture()
+			files[0].source = article('newer', {
+				cover: { src: `./${filename}`, alt: 'Banner artikel.' },
+			})
+			files.push({ path: `posts/newer/${filename}`, source: 'not an image' })
+			await expect(service.getPostBySlug('newer')).rejects.toMatchObject({
+				name: 'InvalidBlogContentError',
+				field: 'cover.src',
+			})
+			await expect(service.listPosts()).rejects.toBeInstanceOf(
+				InvalidBlogContentError
+			)
+		}
+	)
+
+	it.each(['images/cover.JPG', 'cover.webp', 'cover.svg'])(
+		'accepts a supported image cover %s without downloading it',
+		async (filename) => {
+			const { service, files, fetch } = fixture()
+			files[0].source = article('newer', {
+				cover: { src: `./${filename}`, alt: 'Banner artikel.' },
+			})
+			files.push({ path: `posts/newer/${filename}`, source: 'image bytes' })
+			await expect(service.getPostBySlug('newer')).resolves.toMatchObject({
+				cover: { src: { commit, path: `posts/newer/${filename}` } },
+			})
+			expect(fetch).toHaveBeenCalledTimes(4)
+		}
+	)
+
 	it('preserves the entire Markdown body and resolves only post-local assets', async () => {
 		const { service } = fixture()
 		const post = await service.getPostBySlug('newer')

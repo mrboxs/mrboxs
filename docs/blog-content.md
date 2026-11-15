@@ -25,6 +25,9 @@ the current `main` on every operation rather than fixing that reviewed commit.
   Slugs and author IDs use lowercase letters/numbers separated by single hyphens.
 - Require nonempty title/description, a valid calendar date string `YYYY-MM-DD`,
   a string array of tags, boolean `draft`, author ID, and cover `src`/`alt`.
+- A public post's cover must resolve to a regular file with an image extension
+  supported by the asset endpoint. Existing non-image files fail `cover.src`
+  validation in both list and detail, without downloading the cover blob.
 - Resolve authors from `authors/<id>.json`, requiring nonempty `name` and an
   HTTP(S) `url` without embedded credentials. Nonempty `bio` is optional.
 - Parse only the leading YAML block through its closing `---` line. YAML aliases,

@@ -334,7 +334,7 @@ export function createBlogContentService(client: Octokit) {
 					])
 			)
 			const cover = resolvePostAsset({ assets }, metadata.cover.src)
-			if (!cover) {
+			if (!cover || !assetContentType(cover.path)) {
 				throw new InvalidBlogContentError(`${prefix}index.md`, 'cover.src')
 			}
 			return {
