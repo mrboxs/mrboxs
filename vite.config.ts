@@ -10,6 +10,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 import { voidPlugin } from 'void'
 
+import process from 'node:process'
+
 const chunkSizeBudget: Plugin = {
 	name: 'chunk-size-budget',
 	apply: 'build',
@@ -391,7 +393,7 @@ const config = defineConfig({
 		},
 	},
 	plugins: lazyPlugins(() => {
-		if (process.env.VITEST) return [viteReact()]
+		if ((process as NodeJS.Process).env.VITEST) return [viteReact()]
 
 		return [
 			devtools(),
