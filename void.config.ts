@@ -7,5 +7,8 @@ export default defineConfig({
 	},
 	cloudflare: {
 		name: 'mrboxs',
+		routes: [],
+		workers_dev: true,
+		preview_urls: true,
 	},
 })
