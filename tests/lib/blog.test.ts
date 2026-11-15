@@ -1254,10 +1254,10 @@ describe('blog asset HTTP endpoint', () => {
 		const key = [...workerCache.values.keys()].find((value) =>
 			value.includes('/image/')
 		)!
-		const record = (await workerCache.values
+		const record: Record<string, unknown> = await workerCache.values
 			.get(key)!
 			.clone()
-			.json()) as Record<string, unknown>
+			.json()
 		content = btoa('\0'.repeat(maxBytes + 1))
 		workerCache.values.set(
 			key,

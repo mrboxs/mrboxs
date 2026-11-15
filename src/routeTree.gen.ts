@@ -10,11 +10,35 @@
 
 import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
+import { Route as BlogIndexRouteImport } from "./routes/blog.index";
+import { Route as BlogSlugRouteImport } from "./routes/blog.$slug";
+import { Route as ApiReferenceSplatRouteImport } from "./routes/api.reference.$";
+import { Route as ApiRpcSplatRouteImport } from "./routes/api.rpc.$";
 import { Route as ApiBlogAssetsSlugSplatRouteImport } from "./routes/api.blog.assets.$slug.$";
 
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: "/blog/",
+  path: "/blog/",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: "/blog/$slug",
+  path: "/blog/$slug",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ApiReferenceSplatRoute = ApiReferenceSplatRouteImport.update({
+  id: "/api/reference/$",
+  path: "/api/reference/$",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
+  id: "/api/rpc/$",
+  path: "/api/rpc/$",
   getParentRoute: () => rootRouteImport,
 } as any);
 const ApiBlogAssetsSlugSplatRoute = ApiBlogAssetsSlugSplatRouteImport.update({
@@ -25,27 +49,62 @@ const ApiBlogAssetsSlugSplatRoute = ApiBlogAssetsSlugSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
+  "/blog/$slug": typeof BlogSlugRoute;
+  "/blog/": typeof BlogIndexRoute;
+  "/api/reference/$": typeof ApiReferenceSplatRoute;
+  "/api/rpc/$": typeof ApiRpcSplatRoute;
   "/api/blog/assets/$slug/$": typeof ApiBlogAssetsSlugSplatRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
+  "/blog/$slug": typeof BlogSlugRoute;
+  "/blog": typeof BlogIndexRoute;
+  "/api/reference/$": typeof ApiReferenceSplatRoute;
+  "/api/rpc/$": typeof ApiRpcSplatRoute;
   "/api/blog/assets/$slug/$": typeof ApiBlogAssetsSlugSplatRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
+  "/blog/$slug": typeof BlogSlugRoute;
+  "/blog/": typeof BlogIndexRoute;
+  "/api/reference/$": typeof ApiReferenceSplatRoute;
+  "/api/rpc/$": typeof ApiRpcSplatRoute;
   "/api/blog/assets/$slug/$": typeof ApiBlogAssetsSlugSplatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: "/" | "/api/blog/assets/$slug/$";
+  fullPaths:
+    | "/"
+    | "/blog/$slug"
+    | "/blog/"
+    | "/api/reference/$"
+    | "/api/rpc/$"
+    | "/api/blog/assets/$slug/$";
   fileRoutesByTo: FileRoutesByTo;
-  to: "/" | "/api/blog/assets/$slug/$";
-  id: "__root__" | "/" | "/api/blog/assets/$slug/$";
+  to:
+    | "/"
+    | "/blog/$slug"
+    | "/blog"
+    | "/api/reference/$"
+    | "/api/rpc/$"
+    | "/api/blog/assets/$slug/$";
+  id:
+    | "__root__"
+    | "/"
+    | "/blog/$slug"
+    | "/blog/"
+    | "/api/reference/$"
+    | "/api/rpc/$"
+    | "/api/blog/assets/$slug/$";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
+  BlogSlugRoute: typeof BlogSlugRoute;
+  BlogIndexRoute: typeof BlogIndexRoute;
+  ApiReferenceSplatRoute: typeof ApiReferenceSplatRoute;
+  ApiRpcSplatRoute: typeof ApiRpcSplatRoute;
   ApiBlogAssetsSlugSplatRoute: typeof ApiBlogAssetsSlugSplatRoute;
 }
 
@@ -56,6 +115,34 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/";
       preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/blog/": {
+      id: "/blog/";
+      path: "/blog";
+      fullPath: "/blog/";
+      preLoaderRoute: typeof BlogIndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/blog/$slug": {
+      id: "/blog/$slug";
+      path: "/blog/$slug";
+      fullPath: "/blog/$slug";
+      preLoaderRoute: typeof BlogSlugRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/api/reference/$": {
+      id: "/api/reference/$";
+      path: "/api/reference/$";
+      fullPath: "/api/reference/$";
+      preLoaderRoute: typeof ApiReferenceSplatRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/api/rpc/$": {
+      id: "/api/rpc/$";
+      path: "/api/rpc/$";
+      fullPath: "/api/rpc/$";
+      preLoaderRoute: typeof ApiRpcSplatRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/api/blog/assets/$slug/$": {
@@ -70,6 +157,10 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
+  ApiReferenceSplatRoute: ApiReferenceSplatRoute,
+  ApiRpcSplatRoute: ApiRpcSplatRoute,
   ApiBlogAssetsSlugSplatRoute: ApiBlogAssetsSlugSplatRoute,
 };
 export const routeTree = rootRouteImport

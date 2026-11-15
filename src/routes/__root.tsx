@@ -15,10 +15,12 @@ import { ThemeProvider } from '#/components/theme-provider'
 import { Toaster } from '#/components/ui/toast'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
+import type { orpc } from '#/orpc/client'
 import appCss from '#/styles.css?url'
 
 interface MyRouterContext {
 	queryClient: QueryClient
+	orpc: typeof orpc
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
