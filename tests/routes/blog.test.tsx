@@ -131,6 +131,133 @@ describe('blog routes', () => {
 		)
 	})
 
+	it('copies the loaded page as Markdown with its title and description', async () => {
+		const writeText = vi
+			.spyOn(navigator.clipboard, 'writeText')
+			.mockResolvedValue()
+		await renderPath('/blog/tulisan-pertama')
+		const copy = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Copy page"]'
+		)
+		if (!copy) throw new Error('Missing copy page button')
+		await actAndFlush(() => copy.click())
+		expect(writeText).toHaveBeenCalledExactlyOnceWith(
+			`# ${blogPost.title}\n\n${blogPost.description}\n\n${blogPost.body}`
+		)
+		expect(container.querySelector('nav output')?.textContent).toBe(
+			'Page copied'
+		)
+	})
+
+	it('announces a denied clipboard write without claiming it copied the page', async () => {
+		vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
+			new Error('Denied')
+		)
+		await renderPath('/blog/tulisan-pertama')
+		const copy = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Copy page"]'
+		)
+		if (!copy) throw new Error('Missing copy page button')
+		await actAndFlush(() => copy.click())
+		expect(container.querySelector('nav output')?.textContent).toContain(
+			'Could not copy page'
+		)
+		expect(container.querySelector('nav output')?.textContent).not.toContain(
+			'Page copied'
+		)
+		expect(container.querySelector('h1')?.textContent).toBe(blogPost.title)
+	})
+
+	it('follows the published list order for previous and next articles', async () => {
+		const newer = {
+			...blogMetadata,
+			slug: 'newer-post',
+			title: 'Newer post',
+			publishedAt: '2026-11-17',
+		}
+		const older = {
+			...blogMetadata,
+			slug: 'older-post',
+			title: 'Older post',
+			publishedAt: '2026-11-14',
+		}
+		const posts = [newer, blogMetadata, older]
+		vi.mocked(listPosts).mockResolvedValue(posts)
+		vi.mocked(getPostBySlug).mockImplementation((slug) =>
+			Promise.resolve({
+				...blogPost,
+				...posts.find((post) => post.slug === slug),
+			})
+		)
+		await renderPath('/blog/tulisan-pertama')
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0))
+		})
+		const previous = container.querySelector<HTMLAnchorElement>(
+			'a[aria-label="Previous post"]'
+		)
+		const next = container.querySelector<HTMLAnchorElement>(
+			'a[aria-label="Next post"]'
+		)
+		expect(previous?.getAttribute('href')).toBe('/blog/newer-post')
+		expect(next?.getAttribute('href')).toBe('/blog/older-post')
+		if (!next) throw new Error('Missing next article link')
+		await act(async () => {
+			next.click()
+			await router.load()
+		})
+		expect(router.state.location.pathname).toBe('/blog/older-post')
+		expect(container.querySelector('h1')?.textContent).toBe('Older post')
+	})
+
+	it('disables missing neighbors instead of linking to an unavailable article', async () => {
+		await renderPath('/blog/tulisan-pertama')
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0))
+		})
+		for (const label of ['Previous post', 'Next post']) {
+			expect(
+				container.querySelector<HTMLButtonElement>(
+					`button[aria-label="${label}"]`
+				)?.disabled
+			).toBe(true)
+			expect(container.querySelector(`a[aria-label="${label}"]`)).toBeNull()
+		}
+	})
+
+	it('keeps a readable article when the optional navigation list fails', async () => {
+		vi.mocked(listPosts).mockRejectedValue(new Error('private-list-details'))
+		await renderPath('/blog/tulisan-pertama')
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0))
+		})
+		expect(container.querySelector('h1')?.textContent).toBe(blogPost.title)
+		expect(container.querySelector('article strong')?.textContent).toBe(
+			'Teks tebal'
+		)
+		expect(container.textContent).not.toContain('private-list-details')
+	})
+
+	it('copies the canonical article link from the share menu', async () => {
+		const writeText = vi
+			.spyOn(navigator.clipboard, 'writeText')
+			.mockResolvedValue()
+		await renderPath('/blog/tulisan-pertama')
+		const share = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Share page"]'
+		)
+		if (!share) throw new Error('Missing share page button')
+		await actAndFlush(() => share.click())
+		const copyLink = Array.from(
+			document.querySelectorAll<HTMLElement>('[role="menuitem"]')
+		).find((item) => item.textContent.trim() === 'Copy link')
+		if (!copyLink) throw new Error('Missing copy link menu item')
+		await actAndFlush(() => copyLink.click())
+		expect(writeText).toHaveBeenCalledExactlyOnceWith(
+			new URL('/blog/tulisan-pertama', router.origin).href
+		)
+	})
+
 	it.each(['missing', 'draft'])(
 		'uses the 404 boundary for a %s article',
 		async (slug) => {

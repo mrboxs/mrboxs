@@ -212,6 +212,21 @@
 }
 
 @layer components {
+	.blog-post-toolbar {
+		@media (pointer: coarse) {
+			:is(button, a) {
+				min-width: 44px;
+				min-height: 44px;
+			}
+		}
+	}
+
+	.blog-action-menu [data-slot='dropdown-menu-item'] {
+		@media (pointer: coarse) {
+			min-height: 44px;
+		}
+	}
+
 	.portfolio-page {
 		overflow-x: clip;
 		font-feature-settings: 'ss01', 'zero';
