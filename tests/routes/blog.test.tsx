@@ -258,6 +258,71 @@ describe('blog routes', () => {
 		)
 	})
 
+	it('opens the active article in Markdown, GitHub, and each requested AI service', async () => {
+		await renderPath('/blog/tulisan-pertama')
+		const options = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Page options"]'
+		)
+		if (!options) throw new Error('Missing page options button')
+		await actAndFlush(() => options.click())
+		const links = Array.from(
+			document.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"]')
+		)
+		expect(links.map((link) => link.textContent.trim())).toEqual([
+			'View as Markdown',
+			'Open in GitHub',
+			'Open in ChatGPT',
+			'Open in Claude',
+			'Open in Cursor',
+			'Open in Grok',
+		])
+		const destinations = links.map((link) => new URL(link.href))
+		const markdownUrl = new URL('/blog/tulisan-pertama.md', router.origin).href
+		expect(destinations[0].href).toBe(markdownUrl)
+		expect(destinations[1].href).toBe(
+			'https://github.com/mrboxs/written-by-boxs/blob/main/posts/tulisan-pertama/index.md'
+		)
+		const prompt = `Read ${markdownUrl}, I want to ask questions about it.`
+		for (const [offset, base, key] of [
+			[2, 'https://chatgpt.com/', 'q'],
+			[3, 'https://claude.ai/new', 'q'],
+			[4, 'https://cursor.com/link/prompt', 'text'],
+			[5, 'https://grok.com/', 'q'],
+		] as const) {
+			const destination = destinations[offset]
+			expect(`${destination.origin}${destination.pathname}`).toBe(base)
+			expect(destination.searchParams.get(key)).toBe(prompt)
+		}
+		expect(destinations[2].searchParams.get('hints')).toBe('search')
+		for (const link of links) {
+			expect(link.target).toBe('_blank')
+			expect(link.relList.contains('noopener')).toBe(true)
+			expect(link.relList.contains('noreferrer')).toBe(true)
+			expect(link.getAttribute('aria-label')).toContain('opens in a new tab')
+		}
+		expect(document.querySelectorAll('[role="menuitem"]')).toHaveLength(8)
+	})
+
+	it('retains copy link in the expanded page options menu', async () => {
+		const writeText = vi
+			.spyOn(navigator.clipboard, 'writeText')
+			.mockResolvedValue()
+		await renderPath('/blog/tulisan-pertama')
+		const options = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Page options"]'
+		)
+		if (!options) throw new Error('Missing page options button')
+		await actAndFlush(() => options.click())
+		const copyLink = Array.from(
+			document.querySelectorAll<HTMLElement>('[role="menuitem"]')
+		).find((item) => item.textContent.trim() === 'Copy link')
+		if (!copyLink) throw new Error('Missing copy link menu item')
+		await actAndFlush(() => copyLink.click())
+		expect(writeText).toHaveBeenCalledExactlyOnceWith(
+			new URL('/blog/tulisan-pertama', router.origin).href
+		)
+	})
+
 	it.each(['missing', 'draft'])(
 		'uses the 404 boundary for a %s article',
 		async (slug) => {

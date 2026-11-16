@@ -13,6 +13,17 @@ The service returns Markdown as text. It never compiles or executes Markdown,
 MDX, HTML, code fences, or optional extensions. UI, oRPC, Query integration,
 storage uploads, and webhooks remain outside this service.
 
+## Public Markdown
+
+`GET/HEAD /blog/<slug>.md` reads through the same published-post service and
+returns the title, description, and unchanged body as inline UTF-8 plain text.
+`getPostMarkdown()` supplies identical content to Copy page and Download Markdown.
+The response is `no-store`; drafts and missing posts return a generic 404,
+and source failures return generic 500/502/503 responses without private details.
+Only GET and HEAD are allowed. The page-options menu links AI services to this
+public Markdown URL and GitHub to `posts/<slug>/index.md` in the private content
+repository; GitHub access still requires the visitor's own permission.
+
 ## Repository contract
 
 The trusted server constants are owner `mrboxs`, repository `written-by-boxs`,

@@ -49,6 +49,12 @@ export interface BlogPost extends PostMetadata {
 	assets: Record<string, BlogAsset>
 }
 
+export function getPostMarkdown(
+	post: Pick<BlogPost, 'title' | 'description' | 'body'>
+): string {
+	return `# ${post.title}\n\n${post.description}\n\n${post.body}`
+}
+
 /** Resolve a Markdown image destination without fetching or rewriting the body. */
 export function resolvePostAsset(
 	post: Pick<BlogPost, 'assets'>,

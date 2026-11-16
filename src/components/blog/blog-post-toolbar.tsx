@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import {
 	IconArrowLeft,
 	IconArrowRight,
+	IconBrandGithubFilled,
 	IconBrandLinkedin,
+	IconBrandOpenai,
 	IconBrandX,
 	IconCheck,
 	IconChevronDown,
@@ -16,6 +18,12 @@ import {
 	IconX,
 } from '@tabler/icons-react'
 
+import {
+	ClaudeIcon,
+	CursorIcon,
+	GrokIcon,
+	MarkdownIcon,
+} from '#/components/blog/blog-action-icons'
 import { Button, buttonVariants } from '#/components/ui/button'
 import { ButtonGroup, ButtonGroupSeparator } from '#/components/ui/button-group'
 import {
@@ -23,6 +31,7 @@ import {
 	DropdownMenuContent,
 	DropdownMenuGroup,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { toast } from '#/components/ui/toast'
@@ -31,6 +40,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '#/components/ui/tooltip'
+import { getPostMarkdown } from '#/lib/blog'
 import type { BlogPost, PostMetadata } from '#/lib/blog'
 
 async function copyLink(url: string) {
@@ -68,6 +78,36 @@ function PostCopyMenu({
 	slug: string
 	url: string
 }) {
+	const markdownUrl = `${url}.md`
+	const prompt = `Read ${markdownUrl}, I want to ask questions about it.`
+	const viewOptions = [
+		{ label: 'View as Markdown', href: markdownUrl, icon: MarkdownIcon },
+		{
+			label: 'Open in GitHub',
+			href: `https://github.com/mrboxs/written-by-boxs/blob/main/posts/${slug}/index.md`,
+			icon: IconBrandGithubFilled,
+		},
+		{
+			label: 'Open in ChatGPT',
+			href: `https://chatgpt.com/?${new URLSearchParams({ hints: 'search', q: prompt })}`,
+			icon: IconBrandOpenai,
+		},
+		{
+			label: 'Open in Claude',
+			href: `https://claude.ai/new?${new URLSearchParams({ q: prompt })}`,
+			icon: ClaudeIcon,
+		},
+		{
+			label: 'Open in Cursor',
+			href: `https://cursor.com/link/prompt?${new URLSearchParams({ text: prompt })}`,
+			icon: CursorIcon,
+		},
+		{
+			label: 'Open in Grok',
+			href: `https://grok.com/?${new URLSearchParams({ q: prompt })}`,
+			icon: GrokIcon,
+		},
+	]
 	const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
 	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 	const attempt = useRef(0)
@@ -131,6 +171,25 @@ function PostCopyMenu({
 						className="blog-action-menu w-fit min-w-48 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
 						align="end"
 					>
+						<DropdownMenuGroup>
+							{viewOptions.map(({ label, href, icon: Icon }) => (
+								<DropdownMenuItem
+									key={label}
+									render={
+										<a
+											href={href}
+											aria-label={`${label} (opens in a new tab)`}
+											target="_blank"
+											rel="noopener noreferrer"
+										/>
+									}
+								>
+									<Icon aria-hidden="true" />
+									{label}
+								</DropdownMenuItem>
+							))}
+						</DropdownMenuGroup>
+						<DropdownMenuSeparator />
 						<DropdownMenuGroup>
 							<DropdownMenuItem
 								onClick={() => downloadMarkdown(markdown, slug)}
@@ -280,7 +339,7 @@ export function BlogPostToolbar({
 }) {
 	const router = useRouter()
 	const url = new URL(`/blog/${post.slug}`, router.origin).href
-	const markdown = `# ${post.title}\n\n${post.description}\n\n${post.body}`
+	const markdown = getPostMarkdown(post)
 	return (
 		<nav
 			className="blog-post-toolbar flex flex-wrap items-center justify-between gap-1 p-2 pl-4 sm:gap-2"

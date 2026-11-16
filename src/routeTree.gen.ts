@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from "./routes/__root";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as BlogIndexRouteImport } from "./routes/blog.index";
 import { Route as BlogSlugRouteImport } from "./routes/blog.$slug";
+import { Route as BlogChar123slugChar125DotmdRouteImport } from "./routes/blog.{$slug}[.]md";
 import { Route as ApiReferenceSplatRouteImport } from "./routes/api.reference.$";
 import { Route as ApiRpcSplatRouteImport } from "./routes/api.rpc.$";
 import { Route as ApiBlogAssetsSlugSplatRouteImport } from "./routes/api.blog.assets.$slug.$";
@@ -31,6 +32,12 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: "/blog/$slug",
   getParentRoute: () => rootRouteImport,
 } as any);
+const BlogChar123slugChar125DotmdRoute =
+  BlogChar123slugChar125DotmdRouteImport.update({
+    id: "/blog/{$slug}.md",
+    path: "/blog/{$slug}.md",
+    getParentRoute: () => rootRouteImport,
+  } as any);
 const ApiReferenceSplatRoute = ApiReferenceSplatRouteImport.update({
   id: "/api/reference/$",
   path: "/api/reference/$",
@@ -50,6 +57,7 @@ const ApiBlogAssetsSlugSplatRoute = ApiBlogAssetsSlugSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute;
   "/blog/$slug": typeof BlogSlugRoute;
+  "/blog/{$slug}.md": typeof BlogChar123slugChar125DotmdRoute;
   "/blog/": typeof BlogIndexRoute;
   "/api/reference/$": typeof ApiReferenceSplatRoute;
   "/api/rpc/$": typeof ApiRpcSplatRoute;
@@ -58,6 +66,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof IndexRoute;
   "/blog/$slug": typeof BlogSlugRoute;
+  "/blog/{$slug}.md": typeof BlogChar123slugChar125DotmdRoute;
   "/blog": typeof BlogIndexRoute;
   "/api/reference/$": typeof ApiReferenceSplatRoute;
   "/api/rpc/$": typeof ApiRpcSplatRoute;
@@ -67,6 +76,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof IndexRoute;
   "/blog/$slug": typeof BlogSlugRoute;
+  "/blog/{$slug}.md": typeof BlogChar123slugChar125DotmdRoute;
   "/blog/": typeof BlogIndexRoute;
   "/api/reference/$": typeof ApiReferenceSplatRoute;
   "/api/rpc/$": typeof ApiRpcSplatRoute;
@@ -77,6 +87,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/blog/$slug"
+    | "/blog/{$slug}.md"
     | "/blog/"
     | "/api/reference/$"
     | "/api/rpc/$"
@@ -85,6 +96,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/blog/$slug"
+    | "/blog/{$slug}.md"
     | "/blog"
     | "/api/reference/$"
     | "/api/rpc/$"
@@ -93,6 +105,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/blog/$slug"
+    | "/blog/{$slug}.md"
     | "/blog/"
     | "/api/reference/$"
     | "/api/rpc/$"
@@ -102,6 +115,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   BlogSlugRoute: typeof BlogSlugRoute;
+  BlogChar123slugChar125DotmdRoute: typeof BlogChar123slugChar125DotmdRoute;
   BlogIndexRoute: typeof BlogIndexRoute;
   ApiReferenceSplatRoute: typeof ApiReferenceSplatRoute;
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute;
@@ -131,6 +145,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof BlogSlugRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/blog/{$slug}.md": {
+      id: "/blog/{$slug}.md";
+      path: "/blog/{$slug}.md";
+      fullPath: "/blog/{$slug}.md";
+      preLoaderRoute: typeof BlogChar123slugChar125DotmdRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/api/reference/$": {
       id: "/api/reference/$";
       path: "/api/reference/$";
@@ -158,6 +179,7 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BlogSlugRoute: BlogSlugRoute,
+  BlogChar123slugChar125DotmdRoute: BlogChar123slugChar125DotmdRoute,
   BlogIndexRoute: BlogIndexRoute,
   ApiReferenceSplatRoute: ApiReferenceSplatRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
