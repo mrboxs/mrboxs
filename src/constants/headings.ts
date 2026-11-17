@@ -20,7 +20,7 @@ function headingText(node: Nodes): string {
 
 function annotateHeadings(tree: Root) {
 	const headings: Array<ArticleHeading> = []
-	const usedIds = new Set<string>()
+	const usedIds = new Set(['post-title', 'main-content', 'footnote-label'])
 	visit(tree, 'heading', (node) => {
 		const title = headingText(node)
 		const slug =

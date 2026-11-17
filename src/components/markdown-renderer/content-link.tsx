@@ -70,7 +70,10 @@ export function ContentLink({
 			</a>
 		)
 	}
-	if (target.url.pathname.startsWith('/api/')) {
+	if (
+		target.url.pathname.startsWith('/api/') ||
+		target.url.pathname.endsWith('.md')
+	) {
 		return (
 			<a
 				{...props}

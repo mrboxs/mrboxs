@@ -64,6 +64,7 @@ export async function prepareMarkdown(content: string) {
 		code.push(node)
 	})
 	let remainingCharacters = highlightCharacterBudget
+	const toHighlight: Array<PreparedCodeBlock> = []
 	for (const node of code) {
 		const offset = node.position?.start.offset
 		if (offset === undefined) continue
@@ -71,15 +72,21 @@ export async function prepareMarkdown(content: string) {
 			code: node.value,
 			language: node.lang?.toLowerCase() ?? 'text',
 		}
+		result.codeBlocks[offset] = block
 		if (
 			isBundledLanguage(block.language) &&
 			block.code.length <= remainingCharacters
 		) {
 			remainingCharacters -= block.code.length
-			result.codeBlocks[offset] = await highlight(block)
-		} else {
-			result.codeBlocks[offset] = block
+			toHighlight.push(block)
 		}
 	}
+	let nextBlock = 0
+	function highlightNext(): Promise<void> {
+		const block = toHighlight.at(nextBlock++)
+		return block ? highlight(block).then(highlightNext) : Promise.resolve()
+	}
+	// Overlap grammar loading without starting every block at once.
+	await Promise.all([highlightNext(), highlightNext()])
 	return result
 }

@@ -159,6 +159,54 @@ describe('blog Markdown renderer', () => {
 		expect(container.querySelector('img[alt="Inline"]')).toBeNull()
 		expect(container.textContent).toContain('Image unavailable: Inline')
 	})
+	it.each([
+		'./images/diagram.svg#detail',
+		'./images/diagram.svg?raw=1',
+		'./images/diagram.svg?raw=1#detail',
+		'./images/diagram.svg?label=a%20b#detail',
+	])(
+		'preserves the query and fragment on inventoried assets: %s',
+		async (reference) => {
+			await render(`![Diagram](${reference})\n\n[Open diagram](${reference})`, {
+				assets: {
+					'images/diagram.svg': {
+						commit: blogPost.cover.src.commit,
+						path: `posts/${blogPost.slug}/images/diagram.svg`,
+					},
+				},
+			})
+			const expected = reference.replace(
+				'./',
+				`/api/blog/assets/${blogPost.slug}/`
+			)
+			expect(find('img[alt="Diagram"]').getAttribute('src')).toBe(expected)
+			expect(find('a').getAttribute('href')).toBe(expected)
+		}
+	)
+
+	it.each([
+		'/blog/tulisan-pertama.md?download=1#content',
+		'tulisan-pertama.md?download=1#content',
+		'https://preview.example.test/blog/tulisan-pertama.md?download=1#content',
+	])(
+		'requests Markdown links as documents without router interception: %s',
+		async (href) => {
+			await render(`[Markdown](${href})`)
+			const link = find<HTMLAnchorElement>('a')
+			expect(link.getAttribute('href')).toBe(
+				'/blog/tulisan-pertama.md?download=1#content'
+			)
+			const navigate = vi.spyOn(router, 'navigate')
+			const event = new MouseEvent('click', {
+				bubbles: true,
+				cancelable: true,
+				button: 0,
+			})
+			await actAndFlush(() => link.dispatchEvent(event))
+			expect(event.defaultPrevented).toBe(false)
+			expect(navigate).not.toHaveBeenCalled()
+		}
+	)
 
 	it('uses shadcn tables without losing alignment, cell formatting or keyboard access', async () => {
 		await render(
@@ -212,6 +260,10 @@ describe('blog Markdown renderer', () => {
 		'> [!UNKNOWN]\n> Ordinary quote.',
 		'> Text before [!NOTE].',
 		'> [!NOTE] on the same line.',
+		'> [!NOTE] **Quoted text**',
+		'> [!NOTE] *Quoted text*',
+		'> [!NOTE] [Quoted link](https://example.com)',
+		'> [!NOTE] `Quoted code`',
 		'> `[!NOTE]`\n> Quoted code.',
 		'> \\[!NOTE]\n> Escaped marker.',
 		'> &#91;!NOTE]\n> Entity marker.',
@@ -400,7 +452,7 @@ describe('blog Markdown renderer', () => {
 			},
 		}
 		await render(
-			'![Cover](<./images/café cover.png>)\n\n[Open](<./images/café cover.png>)\n\n![Escape](%2e%2e/images/caf%C3%A9%20cover.png)\n\n![Double](images/caf%25C3%25A9%2520cover.png)',
+			'![Cover](<./images/café cover.png>)\n\n[Open](<./images/café cover.png>)\n\n![Escape](%2e%2e/images/caf%C3%A9%20cover.png?raw=1#detail)\n\n![Double](images/caf%25C3%25A9%2520cover.png#detail)',
 			{ assets }
 		)
 		expect(find<HTMLImageElement>('img[alt="Cover"]').getAttribute('src')).toBe(

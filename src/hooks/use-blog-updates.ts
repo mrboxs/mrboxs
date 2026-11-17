@@ -7,7 +7,8 @@ export function useBlogUpdates(initialRevision: string | undefined) {
 	const router = useRouter()
 	const { queryClient, orpc } = router.options.context
 	const appliedRevision = useRef(initialRevision)
-	const { data, isFetching, isSuccess } = useQuery(
+	const refreshing = useRef(false)
+	const { data, dataUpdatedAt, isFetching, isSuccess } = useQuery(
 		orpc.blog.revision.queryOptions({
 			input: {},
 			enabled: typeof window !== 'undefined',
@@ -20,24 +21,45 @@ export function useBlogUpdates(initialRevision: string | undefined) {
 	)
 	const revision = data?.revision
 
+	// Each successful probe can retry an unapplied revision even when its SHA is unchanged.
 	useEffect(() => {
 		if (
 			isFetching ||
 			!isSuccess ||
 			!revision ||
-			revision === appliedRevision.current
+			revision === appliedRevision.current ||
+			refreshing.current
 		) {
 			return
 		}
-		appliedRevision.current = revision
+		refreshing.current = true
 		void Promise.all([
-			queryClient.invalidateQueries({ queryKey: orpc.blog.list.key() }),
+			queryClient.invalidateQueries(
+				{ queryKey: orpc.blog.list.key() },
+				{ throwOnError: true }
+			),
 			queryClient.invalidateQueries({
 				queryKey: orpc.blog.getBySlug.key(),
 				refetchType: 'none',
 			}),
 		])
-			.then(() => router.invalidate())
+			.then(() => router.invalidate({ sync: true }))
+			.then(() => {
+				if (router.state.matches.every((match) => match.status === 'success')) {
+					appliedRevision.current = revision
+				}
+			})
 			.catch(noop)
-	}, [revision, isFetching, isSuccess, orpc, queryClient, router])
+			.finally(() => {
+				refreshing.current = false
+			})
+	}, [
+		revision,
+		dataUpdatedAt,
+		isFetching,
+		isSuccess,
+		orpc,
+		queryClient,
+		router,
+	])
 }

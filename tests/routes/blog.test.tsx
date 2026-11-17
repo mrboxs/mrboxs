@@ -436,6 +436,78 @@ describe('blog routes', () => {
 		expect(container.textContent).toContain('Tulisan tidak ditemukan')
 	})
 
+	it.each(['list', 'loader'] as const)(
+		'retries a failed %s refresh on the next poll for the same revision',
+		async (failure) => {
+			vi.useFakeTimers()
+			focusManager.setFocused(true)
+			await renderPath('/blog/tulisan-pertama')
+			await advancePolling(0)
+			const nextRevision = 'b'.repeat(40)
+			const updated = {
+				...blogPost,
+				title: 'Updated on retry',
+				cover: {
+					...blogPost.cover,
+					src: { ...blogPost.cover.src, commit: nextRevision },
+				},
+			}
+			vi.mocked(getBlogRevision).mockResolvedValue(nextRevision)
+			vi.mocked(getPostBySlug).mockResolvedValue(updated)
+			vi.mocked(listPosts).mockResolvedValue([
+				{ ...blogMetadata, slug: 'new-post', title: 'New post' },
+				updated,
+			])
+			if (failure === 'list') {
+				vi.mocked(listPosts).mockRejectedValueOnce(
+					new BlogSourceError('network')
+				)
+			} else {
+				vi.spyOn(router, 'invalidate').mockRejectedValueOnce(
+					new Error('Loader refresh failed')
+				)
+			}
+			await advancePolling(5_001)
+			expect(container.querySelector('#post-title')?.textContent).toBe(
+				blogPost.title
+			)
+			await advancePolling(5_001)
+			expect(container.querySelector('#post-title')?.textContent).toBe(
+				updated.title
+			)
+			expect(
+				container
+					.querySelector('a[aria-label="Previous post"]')
+					?.getAttribute('href')
+			).toBe('/blog/new-post')
+			expect(listPosts).toHaveBeenCalledTimes(3)
+			expect(getPostBySlug).toHaveBeenCalledTimes(2)
+			await advancePolling(5_001)
+			expect(listPosts).toHaveBeenCalledTimes(3)
+			expect(getPostBySlug).toHaveBeenCalledTimes(2)
+		}
+	)
+
+	it('does not restart an in-flight content refresh when another revision poll completes', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(0)
+		vi.mocked(getBlogRevision).mockResolvedValue('b'.repeat(40))
+		let complete!: (posts: Array<typeof blogMetadata>) => void
+		vi.mocked(listPosts).mockReturnValueOnce(
+			new Promise((resolve) => {
+				complete = resolve
+			})
+		)
+		await advancePolling(10_001)
+		expect(listPosts).toHaveBeenCalledTimes(2)
+		await actAndFlush(() => complete([blogMetadata]))
+		expect(getPostBySlug).toHaveBeenCalledTimes(2)
+		await advancePolling(5_001)
+		expect(listPosts).toHaveBeenCalledTimes(2)
+	})
+
 	it('detects a push between the initial loader and the first revision check', async () => {
 		vi.useFakeTimers()
 		focusManager.setFocused(true)
@@ -548,6 +620,31 @@ describe('blog routes', () => {
 		expect(container.textContent).toContain(
 			'Belum ada tulisan yang dipublikasikan.'
 		)
+	})
+
+	it('keeps heading permalinks distinct from page and footnote IDs', async () => {
+		vi.mocked(getPostBySlug).mockResolvedValue({
+			...blogPost,
+			body: '## Post title\n\n## Main content\n\n## Post title\n\n## Footnote label\n\nA note[^one].\n\n[^one]: Footnote content.',
+		})
+		await renderPath('/blog/tulisan-pertama')
+		for (const id of ['post-title', 'main-content', 'footnote-label']) {
+			expect(container.querySelectorAll(`[id="${id}"]`)).toHaveLength(1)
+		}
+		for (const id of [
+			'post-title-1',
+			'main-content-1',
+			'post-title-2',
+			'footnote-label-1',
+		]) {
+			const heading = container.querySelector(`h2[id="${id}"]`)
+			expect(heading).not.toBeNull()
+			expect(heading?.querySelector('a')?.hash).toBe(`#${id}`)
+		}
+		const ids = [...container.querySelectorAll('[id]')].map(
+			(element) => element.id
+		)
+		expect(new Set(ids).size).toBe(ids.length)
 	})
 
 	it('copies the loaded page as Markdown with its title and description', async () => {

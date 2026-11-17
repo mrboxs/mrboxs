@@ -60,7 +60,7 @@ describe('server Markdown preparation', () => {
 		).toMatchObject({ light: { fontStyle: 2 }, dark: { fontStyle: 2 } })
 		expect(block.colors?.light.color).toBeTruthy()
 		expect(block.colors?.dark.color).toBeTruthy()
-		expect(JSON.parse(JSON.stringify(result))).toEqual(result)
+		expect(await Response.json(result).json()).toEqual(result)
 	})
 	it('falls back to plain code when highlighting fails', async () => {
 		vi.spyOn(shiki, 'getSingletonHighlighter').mockRejectedValue(
@@ -77,6 +77,56 @@ describe('server Markdown preparation', () => {
 			(await prepareMarkdown(`\`\`\`js\n${code}\n\`\`\``)).codeBlocks[0]
 		).toEqual({ code, language: 'js' })
 		expect(highlighter).not.toHaveBeenCalled()
+	})
+	it('overlaps independent grammar loads with at most two in flight and awaits every block', async () => {
+		let active = 0
+		let peak = 0
+		const releases: Array<() => void> = []
+		const highlighter = vi
+			.spyOn(shiki, 'getSingletonHighlighter')
+			.mockImplementation(
+				() =>
+					new Promise((_resolve, reject) => {
+						active++
+						peak = Math.max(peak, active)
+						releases.push(() => {
+							active--
+							reject(new Error('Grammar unavailable'))
+						})
+					})
+			)
+		const pending = prepareMarkdown(
+			'```js\nfirst\n```\n\n```ts\nsecond\n```\n\n```css\nthird\n```'
+		)
+		expect(highlighter).toHaveBeenCalledTimes(2)
+		releases.shift()?.()
+		await vi.waitFor(() => expect(highlighter).toHaveBeenCalledTimes(3))
+		expect(active).toBe(2)
+		for (const release of releases) release()
+		const result = await pending
+		expect(Object.values(result.codeBlocks).map(({ code }) => code)).toEqual([
+			'first',
+			'second',
+			'third',
+		])
+		expect(active).toBe(0)
+		expect(peak).toBe(2)
+	})
+	it('allocates the cumulative highlighting budget in source order before loading grammars', async () => {
+		const highlighter = vi
+			.spyOn(shiki, 'getSingletonHighlighter')
+			.mockRejectedValue(new Error('Grammar unavailable'))
+		const blocks = [30_000, 20_001, 20_000, 1].map((length) =>
+			'x'.repeat(length)
+		)
+		const content = blocks
+			.map((code) => `\`\`\`js\n${code}\n\`\`\``)
+			.join('\n\n')
+		const result = await prepareMarkdown(content)
+		expect(Object.values(result.codeBlocks).map(({ code }) => code)).toEqual(
+			blocks
+		)
+		expect(highlighter).toHaveBeenCalledTimes(2)
 	})
 	it('does not resolve project or collection mentions', async () => {
 		expect(
