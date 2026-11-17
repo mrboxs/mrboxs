@@ -436,7 +436,7 @@ describe('blog routes', () => {
 		expect(container.textContent).toContain('Tulisan tidak ditemukan')
 	})
 
-	it.each(['list', 'loader'] as const)(
+	it.each(['list', 'article'] as const)(
 		'retries a failed %s refresh on the next poll for the same revision',
 		async (failure) => {
 			vi.useFakeTimers()
@@ -463,8 +463,8 @@ describe('blog routes', () => {
 					new BlogSourceError('network')
 				)
 			} else {
-				vi.spyOn(router, 'invalidate').mockRejectedValueOnce(
-					new Error('Loader refresh failed')
+				vi.mocked(getPostBySlug).mockRejectedValueOnce(
+					new BlogSourceError('network')
 				)
 			}
 			await advancePolling(5_001)
@@ -481,12 +481,72 @@ describe('blog routes', () => {
 					?.getAttribute('href')
 			).toBe('/blog/new-post')
 			expect(listPosts).toHaveBeenCalledTimes(3)
-			expect(getPostBySlug).toHaveBeenCalledTimes(2)
+			expect(getPostBySlug).toHaveBeenCalledTimes(failure === 'list' ? 2 : 3)
+			expect(getBlogRevision).toHaveBeenCalledTimes(3)
+			expect(router.state.matches.at(-1)).toMatchObject({
+				status: 'success',
+				loaderData: { title: updated.title },
+			})
 			await advancePolling(5_001)
 			expect(listPosts).toHaveBeenCalledTimes(3)
-			expect(getPostBySlug).toHaveBeenCalledTimes(2)
+			expect(getPostBySlug).toHaveBeenCalledTimes(failure === 'list' ? 2 : 3)
 		}
 	)
+
+	it('cancels an older detail request before it can make the previous revision fresh again', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(0)
+		const { queryClient, orpc } = router.options.context
+		let completeOlder!: (post: typeof blogPost) => void
+		vi.mocked(getPostBySlug).mockReturnValueOnce(
+			new Promise((resolve) => {
+				completeOlder = resolve
+			})
+		)
+		let backgroundRefresh!: Promise<void>
+		await actAndFlush(() => {
+			backgroundRefresh = queryClient.refetchQueries({
+				queryKey: orpc.blog.getBySlug.key(),
+			})
+		})
+		expect(getPostBySlug).toHaveBeenCalledTimes(2)
+		const updated = {
+			...blogPost,
+			title: 'Current publication',
+			cover: {
+				...blogPost.cover,
+				src: { ...blogPost.cover.src, commit: 'b'.repeat(40) },
+			},
+		}
+		vi.mocked(getBlogRevision).mockResolvedValue(updated.cover.src.commit)
+		vi.mocked(getPostBySlug).mockResolvedValue(updated)
+		let completeList!: (posts: Array<typeof blogMetadata>) => void
+		vi.mocked(listPosts).mockReturnValueOnce(
+			new Promise((resolve) => {
+				completeList = resolve
+			})
+		)
+		await advancePolling(5_001)
+		await actAndFlush(() =>
+			completeOlder({ ...blogPost, title: 'Older background response' })
+		)
+		await backgroundRefresh
+		await advancePolling(1)
+		expect(container.textContent).not.toContain('Older background response')
+		await actAndFlush(() => completeList([updated]))
+		await advancePolling(1)
+		expect(container.querySelector('#post-title')?.textContent).toBe(
+			updated.title
+		)
+		expect(router.state.matches.at(-1)).toMatchObject({
+			loaderData: { title: updated.title },
+		})
+		expect(getPostBySlug).toHaveBeenCalledTimes(3)
+		await advancePolling(5_001)
+		expect(getPostBySlug).toHaveBeenCalledTimes(3)
+	})
 
 	it('does not restart an in-flight content refresh when another revision poll completes', async () => {
 		vi.useFakeTimers()

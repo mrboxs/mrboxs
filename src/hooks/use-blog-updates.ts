@@ -3,6 +3,8 @@ import { useRouter } from '@tanstack/react-router'
 
 import { useEffect, useRef } from 'react'
 
+import { ORPCError } from '@orpc/client'
+
 export function useBlogUpdates(initialRevision: string | undefined) {
 	const router = useRouter()
 	const { queryClient, orpc } = router.options.context
@@ -33,22 +35,39 @@ export function useBlogUpdates(initialRevision: string | undefined) {
 			return
 		}
 		refreshing.current = true
-		void Promise.all([
-			queryClient.invalidateQueries(
-				{ queryKey: orpc.blog.list.key() },
-				{ throwOnError: true }
-			),
-			queryClient.invalidateQueries({
-				queryKey: orpc.blog.getBySlug.key(),
-				refetchType: 'none',
-			}),
-		])
-			.then(() => router.invalidate({ sync: true }))
-			.then(() => {
-				if (router.state.matches.every((match) => match.status === 'success')) {
-					appliedRevision.current = revision
+		const detailQueries = { queryKey: orpc.blog.getBySlug.key() }
+		async function refresh() {
+			await queryClient.cancelQueries(detailQueries)
+			await Promise.all([
+				queryClient.invalidateQueries(
+					{ queryKey: orpc.blog.list.key() },
+					{ throwOnError: true }
+				),
+				queryClient.invalidateQueries({
+					...detailQueries,
+					refetchType: 'none',
+				}),
+			])
+			try {
+				await queryClient.refetchQueries(
+					{ ...detailQueries, type: 'active' },
+					{ throwOnError: true }
+				)
+			} catch (error) {
+				// The loader translates terminal post errors into the not-found boundary.
+				if (
+					!(error instanceof ORPCError) ||
+					(error.code !== 'NOT_FOUND' && error.code !== 'BAD_REQUEST')
+				) {
+					throw error
 				}
-			})
+			}
+			await router.invalidate({ sync: true })
+			if (router.state.matches.every((match) => match.status === 'success')) {
+				appliedRevision.current = revision
+			}
+		}
+		void refresh()
 			.catch(noop)
 			.finally(() => {
 				refreshing.current = false
