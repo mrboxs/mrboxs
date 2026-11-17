@@ -3,6 +3,7 @@ import { z } from 'zod'
 
 const namespace = 'blog-content-v1/mrboxs/written-by-boxs'
 const maxRecordBytes = 8 * 1024 * 1024
+// Snapshot retention for conditional revalidation, not a publication delay.
 export const publicationTtlSeconds = 10 * 60
 export const immutableTtlSeconds = 24 * 60 * 60
 
@@ -28,9 +29,11 @@ export function createBlogCache(
 		identity: string,
 		ttlSeconds: number,
 		schema: z.ZodType<T>,
-		load: () => Promise<T>
+		load: (previous: T | undefined) => Promise<T>,
+		options: { revalidate?: boolean } = {}
 	): Promise<T> {
 		const key = `${namespace}/${identity}`
+		let previous: T | undefined
 		if (store) {
 			try {
 				const record = recordSchema.safeParse(await store.get(key))
@@ -43,7 +46,10 @@ export function createBlogCache(
 					record.data.expiresAt - record.data.createdAt === ttlSeconds * 1000
 				) {
 					const value = schema.safeParse(record.data.value)
-					if (value.success) return value.data
+					if (value.success) {
+						if (!options.revalidate) return value.data
+						previous = value.data
+					}
 				}
 			} catch {
 				// Cache availability never establishes publication or source failure.
@@ -51,7 +57,7 @@ export function createBlogCache(
 		}
 		// Start freshness before I/O; a slow fill must not extend publication validity.
 		const createdAt = now()
-		const value = await load()
+		const value = await load(previous)
 		if (store && now() < createdAt + ttlSeconds * 1000) {
 			try {
 				await store.put(

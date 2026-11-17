@@ -7,6 +7,7 @@ import type { BlogPost, PostMetadata } from '#/lib/blog'
 import {
 	BlogAssetTooLargeError,
 	BlogSourceError,
+	getBlogRevision,
 	getPostBySlug,
 	InvalidBlogContentError,
 	listPosts,
@@ -19,6 +20,7 @@ vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
 	...(await importOriginal()),
 	listPosts: vi.fn(),
 	getPostBySlug: vi.fn(),
+	getBlogRevision: vi.fn(),
 }))
 
 const metadata: PostMetadata = {
@@ -54,6 +56,23 @@ beforeEach(() => {
 })
 
 describe('blog oRPC router', () => {
+	it('exposes only the validated current revision without rendering or listing articles', async () => {
+		vi.mocked(getBlogRevision).mockResolvedValue('a'.repeat(40))
+		const response = await request('/blog-revision', 'QUERY')
+		expect(response.status).toBe(200)
+		expect(await response.json()).toEqual({ revision: 'a'.repeat(40) })
+		expect(getBlogRevision).toHaveBeenCalledExactlyOnceWith()
+		expect(getPostBySlug).not.toHaveBeenCalled()
+		expect(listPosts).not.toHaveBeenCalled()
+	})
+
+	it('rejects malformed revision output instead of exposing it as a valid version', async () => {
+		vi.mocked(getBlogRevision).mockResolvedValue('private-source-error')
+		const response = await request('/blog-revision', 'QUERY')
+		expect(response.status).toBe(500)
+		expect(await response.text()).not.toContain('private-source-error')
+	})
+
 	it('returns the public list as a compact array, including an empty list', async () => {
 		vi.mocked(listPosts)
 			.mockResolvedValueOnce([metadata])
@@ -66,13 +85,30 @@ describe('blog oRPC router', () => {
 		expect(getPostBySlug).not.toHaveBeenCalled()
 	})
 
-	it('maps detailed path params to the service and returns the untouched article', async () => {
+	it('maps detailed path params and adds rendering data without rewriting the article', async () => {
 		vi.mocked(getPostBySlug).mockResolvedValue(post)
 		const response = await request('/blogs/tulisan-pertama')
 		expect(response.status).toBe(200)
-		expect(await response.json()).toEqual(post)
+		expect(await response.json()).toEqual({
+			...post,
+			prepared: { codeBlocks: {} },
+		})
 		expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith('tulisan-pertama')
 		expect(listPosts).not.toHaveBeenCalled()
+	})
+
+	it('includes serializable code blocks through the output schema', async () => {
+		const code = '\tconst value = 1;  \n\n'
+		const body = `Intro\n\n\`\`\`TS\n${code}\n\`\`\``
+		vi.mocked(getPostBySlug).mockResolvedValue({ ...post, body })
+		const response = await request('/blogs/tulisan-pertama')
+		expect(response.status).toBe(200)
+		expect(await response.json()).toMatchObject({
+			body,
+			prepared: {
+				codeBlocks: { [body.indexOf('```')]: { code, language: 'ts' } },
+			},
+		})
 	})
 
 	it('rejects invalid slugs before invoking the source service', async () => {
@@ -93,13 +129,17 @@ describe('blog oRPC router', () => {
 		}
 	})
 
-	it.each(['/blogs', '/blogs/tulisan-pertama'])(
+	it.each(['/blog-revision', '/blogs', '/blogs/tulisan-pertama'])(
 		'maps GitHub rate limits to the declared error for %s',
 		async (path) => {
 			const error = new BlogSourceError('rate-limit', 403)
 			vi.mocked(listPosts).mockRejectedValue(error)
 			vi.mocked(getPostBySlug).mockRejectedValue(error)
-			const response = await request(path, path === '/blogs' ? 'QUERY' : 'GET')
+			vi.mocked(getBlogRevision).mockRejectedValue(error)
+			const response = await request(
+				path,
+				path === '/blogs/tulisan-pertama' ? 'GET' : 'QUERY'
+			)
 			expect(response.status).toBe(429)
 			expect(await response.json()).toMatchObject({
 				code: 'TOO_MANY_REQUESTS',
@@ -123,10 +163,15 @@ describe('blog oRPC router', () => {
 		async (error) => {
 			vi.mocked(listPosts).mockRejectedValue(error)
 			vi.mocked(getPostBySlug).mockRejectedValue(error)
-			for (const path of ['/blogs', '/blogs/tulisan-pertama']) {
+			vi.mocked(getBlogRevision).mockRejectedValue(error)
+			for (const path of [
+				'/blog-revision',
+				'/blogs',
+				'/blogs/tulisan-pertama',
+			]) {
 				const response = await request(
 					path,
-					path === '/blogs' ? 'QUERY' : 'GET'
+					path === '/blogs/tulisan-pertama' ? 'GET' : 'QUERY'
 				)
 				expect(response.status).toBe(500)
 				const body = await response.text()

@@ -147,7 +147,7 @@ function fixture(
 		trees.set(sha, entries)
 		return sha
 	}
-	const fetch = vi.fn<typeof globalThis.fetch>((input) =>
+	const fetch = vi.fn<typeof globalThis.fetch>((input, init) =>
 		Promise.resolve().then(() => {
 			const url = new URL(
 				input instanceof Request ? input.url : input.toString()
@@ -161,10 +161,14 @@ function fixture(
 				)
 			}
 			if (suffix === 'commits/main') {
-				return Response.json({
-					sha: head,
-					commit: { tree: { sha: captureTree() } },
-				})
+				const etag = `"${head}"`
+				if (new Headers(init?.headers).get('If-None-Match') === etag) {
+					return new Response(null, { status: 304, headers: { etag } })
+				}
+				return Response.json(
+					{ sha: head, commit: { tree: { sha: captureTree() } } },
+					{ headers: { etag } }
+				)
 			}
 			const requestedTree = suffix.replace('git/trees/', '')
 			if (suffix.startsWith('git/trees/') && trees.has(requestedTree)) {
@@ -266,6 +270,33 @@ function mockWorkersCache() {
 }
 
 describe('blog server cache', () => {
+	it('checks the current revision with ETags without reading any article blobs', async () => {
+		const { service, fetch, advanceHead } = cachedFixture()
+		expect(await service.getRevision()).toBe(commit)
+		expect(fetch).toHaveBeenCalledTimes(2)
+		expect(await service.getRevision()).toBe(commit)
+		expect(fetch).toHaveBeenCalledTimes(3)
+		advanceHead()
+		expect(await service.getRevision()).toBe(nextCommit)
+		expect(fetch).toHaveBeenCalledTimes(4)
+		expect(
+			fetch.mock.calls.some(([url]) =>
+				(url instanceof Request ? url.url : url.toString()).includes(
+					'/git/blobs/'
+				)
+			)
+		).toBe(false)
+	})
+
+	it('does not accept a 304 without a validated previous snapshot and ETag', async () => {
+		const { service, fetch } = cachedFixture()
+		fetch.mockResolvedValueOnce(new Response(null, { status: 304 }))
+		await expect(service.getRevision()).rejects.toMatchObject({
+			kind: 'upstream',
+			status: 304,
+		})
+	})
+
 	it('shares validated list, detail, and assets through the store across service instances', async () => {
 		const { service, client, cache, fetch } = cachedFixture()
 		const posts = await service.listPosts()
@@ -276,13 +307,13 @@ describe('blog server cache', () => {
 		})
 		expect(await anotherRequest.listPosts()).toEqual(posts)
 		expect((await anotherRequest.getPostBySlug('newer')).body).toBe(body)
-		expect(fetch).toHaveBeenCalledTimes(6)
+		expect(fetch).toHaveBeenCalledTimes(8)
 		const asset = await service.getPostAsset('newer', 'cover.png')
-		expect(fetch).toHaveBeenCalledTimes(7)
+		expect(fetch).toHaveBeenCalledTimes(10)
 		expect(await anotherRequest.getPostAsset('newer', './cover.png')).toEqual(
 			asset
 		)
-		expect(fetch).toHaveBeenCalledTimes(7)
+		expect(fetch).toHaveBeenCalledTimes(11)
 		expect(cache.put.mock.calls.map((call) => call[2])).toContain(
 			publicationTtlSeconds
 		)
@@ -296,7 +327,7 @@ describe('blog server cache', () => {
 		)
 	})
 
-	it('reduces a repeated detail from four GitHub reads to zero and returns independent values', async () => {
+	it('revalidates a repeated detail with one conditional GitHub read and returns independent values', async () => {
 		const { service, fetch } = cachedFixture()
 		const post = await service.getPostBySlug('newer')
 		post.tags.push('caller mutation')
@@ -306,7 +337,12 @@ describe('blog server cache', () => {
 		expect(again.tags).toEqual(['markdown', 'blog'])
 		expect(again.author.name).toBe('MrBoxs')
 		expect(again.cover.src.path).toBe('posts/newer/cover.png')
-		expect(fetch).toHaveBeenCalledTimes(4)
+		expect(fetch).toHaveBeenCalledTimes(5)
+		const [url, init] = fetch.mock.calls.at(-1)!
+		expect(url instanceof Request ? url.url : url.toString()).toContain(
+			'/commits/main'
+		)
+		expect(new Headers(init?.headers).get('If-None-Match')).toBe(`"${commit}"`)
 	})
 
 	it('preserves CRLF Markdown and binary bytes across serialization without sharing mutable buffers', async () => {
@@ -320,11 +356,12 @@ describe('blog server cache', () => {
 		expect((await service.getPostBySlug('newer')).body).toBe(
 			body.replaceAll('\n', '\r\n') + '  \r\n'
 		)
-		expect(fetch).toHaveBeenCalledTimes(5)
+		expect(fetch).toHaveBeenCalledTimes(7)
 	})
 
-	it('pins a fill to one commit, expires without sliding, and refreshes edits and author metadata', async () => {
-		const { service, files, fetch, cache, advanceHead } = cachedFixture()
+	it('pins an in-flight fill to one commit and sees a new push on the next read', async () => {
+		const { service, files, fetch, advanceHead } = cachedFixture()
+		const originalBytes = [...new TextEncoder().encode(files[4].source)]
 		const originalFetch = fetch.getMockImplementation()!
 		let moved = false
 		fetch.mockImplementation(async (...args) => {
@@ -343,12 +380,8 @@ describe('blog server cache', () => {
 			return response
 		})
 		const original = await service.getPostAsset('newer', 'cover.png')
-		expect((await service.getPostBySlug('newer')).title).toBe('Post newer')
+		expect([...original.bytes]).toEqual(originalBytes)
 		expect(fetch).toHaveBeenCalledTimes(5)
-		cache.advance(publicationTtlSeconds - 1)
-		expect(await service.getPostAsset('newer', 'cover.png')).toEqual(original)
-		expect(fetch).toHaveBeenCalledTimes(5)
-		cache.advance(1)
 		const edited = await service.getPostBySlug('newer')
 		expect(edited).toMatchObject({
 			title: 'Edited title',
@@ -359,11 +392,11 @@ describe('blog server cache', () => {
 		expect([
 			...(await service.getPostAsset('newer', 'cover.png')).bytes,
 		]).toEqual([255, 0, 137])
-		expect(fetch).toHaveBeenCalledTimes(10)
+		expect(fetch).toHaveBeenCalledTimes(11)
 	})
 
 	it.each(['draft', 'deleted'])(
-		'closes detail/list/images after expiry when a public article becomes %s, despite retained immutable bytes',
+		'closes detail/list/images immediately when a public article becomes %s, despite retained immutable bytes',
 		async (change) => {
 			const { service, files, cache, advanceHead, fetch } = cachedFixture()
 			await service.getPostAsset('newer', 'cover.png')
@@ -372,11 +405,7 @@ describe('blog server cache', () => {
 				files[0].source = article('newer', { draft: true })
 			} else files.splice(0, 1)
 			advanceHead()
-			expect(
-				(await service.getPostAsset('newer', 'cover.png')).bytes.byteLength
-			).toBeGreaterThan(0)
 			expect(fetch).toHaveBeenCalledTimes(5)
-			cache.advance(publicationTtlSeconds)
 			cache.get.mockClear()
 			await expect(
 				service.getPostAsset('newer', 'cover.png')
@@ -414,18 +443,18 @@ describe('blog server cache', () => {
 		}
 	)
 
-	it('refreshes newly published articles only after the mutable snapshot expires', async () => {
-		const { service, files, cache, advanceHead } = cachedFixture()
+	it('returns newly published articles without waiting for the cached snapshot to expire', async () => {
+		const { service, files, advanceHead } = cachedFixture()
 		expect((await service.listPosts()).map((post) => post.slug)).toEqual([
 			'newer',
 			'older',
 		])
 		files[2].source = article('draft')
 		advanceHead()
-		await expect(service.getPostBySlug('draft')).rejects.toBeInstanceOf(
-			PostNotFoundError
-		)
-		cache.advance(publicationTtlSeconds)
+		await expect(service.getPostBySlug('draft')).resolves.toMatchObject({
+			slug: 'draft',
+			cover: { src: { commit: nextCommit } },
+		})
 		expect((await service.listPosts()).map((post) => post.slug)).toEqual([
 			'draft',
 			'newer',
@@ -441,11 +470,10 @@ describe('blog server cache', () => {
 		{ status: 403, message: 'Rate limit exceeded', kind: 'rate-limit' },
 		{ status: 503, message: 'Unavailable', kind: 'upstream' },
 	])(
-		'fails closed on $kind after publication expiry and does not cache failures',
+		'fails closed on $kind even with an unexpired publication record and does not cache failures',
 		async ({ kind, ...failure }) => {
-			const { service, cache, failures, fetch } = cachedFixture()
+			const { service, failures, fetch } = cachedFixture()
 			await service.getPostAsset('newer', 'cover.png')
-			cache.advance(publicationTtlSeconds)
 			failures.set('commits/main', failure)
 			await expect(
 				service.getPostAsset('newer', 'cover.png')
@@ -459,7 +487,7 @@ describe('blog server cache', () => {
 			await expect(
 				service.getPostAsset('newer', 'cover.png')
 			).resolves.toMatchObject({ contentType: 'image/png' })
-			expect(fetch).toHaveBeenCalledTimes(10)
+			expect(fetch).toHaveBeenCalledTimes(9)
 		}
 	)
 
@@ -504,7 +532,7 @@ describe('blog server cache', () => {
 			await expect(
 				service.getPostAsset('newer', 'cover.png')
 			).resolves.toMatchObject({ contentType: 'image/png' })
-			expect(fetch).toHaveBeenCalledTimes(7)
+			expect(fetch).toHaveBeenCalledTimes(8)
 		}
 	)
 
@@ -515,6 +543,7 @@ describe('blog server cache', () => {
 		'future',
 		'ttl',
 		'expired',
+		'etag',
 		'truncated',
 		'duplicate',
 	])(
@@ -530,6 +559,7 @@ describe('blog server cache', () => {
 			}
 			const changes: Record<string, unknown> = {
 				schema: { value: null },
+				etag: { value: { ...value, etag: 'invalid\r\nheader' } },
 				version: { version: 99 },
 				key: { key: 'other-repository/main' },
 				future: {
@@ -1129,7 +1159,7 @@ describe('blog asset HTTP endpoint', () => {
 		expect([...new Uint8Array(await third.arrayBuffer())]).toEqual(
 			files[4].bytes
 		)
-		expect(fetch).toHaveBeenCalledTimes(5)
+		expect(fetch).toHaveBeenCalledTimes(7)
 		expect(
 			workerCache.open.mock.calls.every((args) => args[0] === 'blog-content-v1')
 		).toBe(true)
@@ -1148,21 +1178,16 @@ describe('blog asset HTTP endpoint', () => {
 		expect((await request()).status).toBe(500)
 		await expect(listPosts()).rejects.toMatchObject({ kind: 'configuration' })
 		expect(workerCache.match).not.toHaveBeenCalled()
-		expect(fetch).toHaveBeenCalledTimes(5)
+		expect(fetch).toHaveBeenCalledTimes(7)
 	})
 
-	it('expires publication through the real adapter, fails closed on rate limits, and gates retained bytes after public-to-draft', async () => {
+	it('revalidates warm publication through the real adapter and gates retained bytes immediately after public-to-draft', async () => {
 		const workerCache = mockWorkersCache()
-		const clock = mockCache()
-		vi.spyOn(Date, 'now').mockImplementation(clock.now)
 		const { files, failures, advanceHead, fetch } = setup(true)
 		expect((await request()).status).toBe(200)
 		files[0].source = article('newer', { draft: true })
 		advanceHead()
-		clock.advance(publicationTtlSeconds - 1)
-		expect((await request()).status).toBe(200)
 		expect(fetch).toHaveBeenCalledTimes(5)
-		clock.advance(1)
 		failures.set('commits/main', { status: 429, message: 'asset-test-token' })
 		const unavailable = await request('newer', 'cover.png', 'HEAD')
 		expect(unavailable.status).toBe(503)
@@ -1251,7 +1276,7 @@ describe('blog asset HTTP endpoint', () => {
 		const bytes = new Uint8Array(await warm.arrayBuffer())
 		expect(bytes.byteLength).toBe(maxBytes)
 		expect(bytes.every((byte) => byte === 0)).toBe(true)
-		expect(fetch).toHaveBeenCalledTimes(5)
+		expect(fetch).toHaveBeenCalledTimes(6)
 		const key = [...workerCache.values.keys()].find((value) =>
 			value.includes('/image/')
 		)!
@@ -1265,7 +1290,7 @@ describe('blog asset HTTP endpoint', () => {
 			Response.json({ ...record, value: { encoding: 'base64', content } })
 		)
 		expect((await request()).status).toBe(413)
-		expect(fetch).toHaveBeenCalledTimes(6)
+		expect(fetch).toHaveBeenCalledTimes(8)
 	}, 15_000)
 
 	it('retains the 5 MiB decoded limit when the tree omits image size, without caching oversized bytes', async () => {

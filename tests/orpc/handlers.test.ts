@@ -7,7 +7,7 @@ import { getPostBySlug, listPosts } from '#/lib/blog.server'
 import { openApiHandler, rpcHandler } from '#/orpc/handlers'
 import type { ORPCRouterClient } from '#/orpc/routers'
 
-import { blogMetadata, blogPost } from '../helpers/blog'
+import { blogMetadata, blogPost, renderedBlogPost } from '../helpers/blog'
 
 vi.mock('void/env', () => ({ env: {} }))
 vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
@@ -43,7 +43,7 @@ describe('configured oRPC handlers', () => {
 			await expect(client.blog.list({})).resolves.toEqual([blogMetadata])
 			await expect(
 				client.blog.getBySlug({ params: { slug: blogMetadata.slug } })
-			).resolves.toEqual(blogPost)
+			).resolves.toEqual(renderedBlogPost)
 			expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith(blogMetadata.slug)
 		}
 	)
@@ -60,7 +60,7 @@ describe('configured oRPC handlers', () => {
 	it('serves compact REST responses without bearer authentication', async () => {
 		for (const [path, method, expected] of [
 			['/blogs', 'QUERY', [blogMetadata]],
-			[`/blogs/${blogMetadata.slug}`, 'GET', blogPost],
+			[`/blogs/${blogMetadata.slug}`, 'GET', renderedBlogPost],
 		] as const) {
 			const result = await openApiHandler.handle(
 				new Request(`https://example.com/api/reference${path}`, { method }),

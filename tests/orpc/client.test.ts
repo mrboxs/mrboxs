@@ -9,7 +9,7 @@ import { getPostBySlug, listPosts } from '#/lib/blog.server'
 import { client, orpc } from '#/orpc/client'
 import { rpcHandler } from '#/orpc/handlers'
 
-import { blogMetadata, blogPost } from '../helpers/blog'
+import { blogMetadata, blogPost, renderedBlogPost } from '../helpers/blog'
 
 vi.hoisted(() => {
 	window.location.href = 'https://preview.example.test/blog'
@@ -71,7 +71,7 @@ describe('isomorphic oRPC browser client', () => {
 	it('keeps detailed slug input intact over the browser RPC transport', async () => {
 		await expect(
 			client.blog.getBySlug({ params: { slug: blogMetadata.slug } })
-		).resolves.toEqual(blogPost)
+		).resolves.toEqual(renderedBlogPost)
 		expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith(blogMetadata.slug)
 		expect(transport.mock.calls[0][1]?.method).toBe('QUERY')
 	})
@@ -87,7 +87,7 @@ describe('isomorphic oRPC browser client', () => {
 			)
 			await expect(
 				mutation.execute({ params: { slug: blogMetadata.slug } })
-			).resolves.toEqual(blogPost)
+			).resolves.toEqual(renderedBlogPost)
 			expect(transport.mock.calls[0][1]).toMatchObject({
 				method: 'POST',
 				cache: 'no-store',

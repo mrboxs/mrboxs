@@ -3,6 +3,7 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 @import '@fontsource/caveat/latin-400.css';
+@plugin '@tailwindcss/typography';
 
 @font-face {
 	font-family: 'Paper Mono';
@@ -211,6 +212,21 @@
 }
 
 @layer components {
+	.blog-post-toolbar {
+		@media (pointer: coarse) {
+			:is(button, a) {
+				min-width: 44px;
+				min-height: 44px;
+			}
+		}
+	}
+
+	.blog-action-menu [data-slot='dropdown-menu-item'] {
+		@media (pointer: coarse) {
+			min-height: 44px;
+		}
+	}
+
 	.portfolio-page {
 		overflow-x: clip;
 		font-feature-settings: 'ss01', 'zero';
@@ -328,4 +344,22 @@
 			row-gap: 1.25rem;
 		}
 	}
+}
+
+/* Both Shiki palettes arrive with SSR; switching theme needs only CSS. */
+.public-code,
+.public-code-token {
+	color: var(--code-light-color, var(--foreground));
+	background-color: transparent;
+	font-style: var(--code-light-style, normal);
+	font-weight: var(--code-light-weight, 400);
+	text-decoration: var(--code-light-decoration, none);
+}
+
+.dark .public-code,
+.dark .public-code-token {
+	color: var(--code-dark-color, var(--foreground));
+	font-style: var(--code-dark-style, normal);
+	font-weight: var(--code-dark-weight, 400);
+	text-decoration: var(--code-dark-decoration, none);
 }

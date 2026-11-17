@@ -79,8 +79,13 @@ const blobSchema = z.object({
 	encoding: z.literal('base64'),
 	content: z.string(),
 })
+const etagSchema = z.string().regex(/^(?:W\/)?"[\x21\x23-\x7E]{1,200}"$/)
 const snapshotSchema = z
-	.object({ commit: commitSchema, tree: treeSchema })
+	.object({
+		commit: commitSchema,
+		tree: treeSchema,
+		etag: etagSchema.optional(),
+	})
 	.refine(
 		({ tree }) =>
 			new Set(tree.tree.map((entry) => entry.path)).size === tree.tree.length
@@ -248,27 +253,54 @@ export function createBlogContentService(
 			`publication/${branch}`,
 			publicationTtlSeconds,
 			snapshotSchema,
-			async () => {
-				const revision = sourceData(
-					commitSchema,
-					await githubRequest((signal) =>
-						client.repos.getCommit({
+			async (previous) => {
+				const response = await githubRequest<{
+					commit: unknown
+					etag?: string
+				}>(async (signal) => {
+					try {
+						const result = await client.repos.getCommit({
 							...repository,
+							headers: {
+								...repository.headers,
+								...(previous?.etag ? { 'If-None-Match': previous.etag } : {}),
+							},
 							ref: branch,
 							request: { signal },
 						})
-					)
-				)
-				const inventory = await githubRequest((signal) =>
-					client.git.getTree({
-						...repository,
-						tree_sha: revision.commit.tree.sha,
-						recursive: '1',
-						request: { signal },
-					})
-				)
-				return sourceData(snapshotSchema, { commit: revision, tree: inventory })
-			}
+						return { data: { commit: result.data, etag: result.headers.etag } }
+					} catch (error) {
+						const parsed = githubErrorSchema.safeParse(error)
+						if (
+							previous?.etag &&
+							parsed.success &&
+							parsed.data.status === 304
+						) {
+							return { data: { commit: previous.commit, etag: previous.etag } }
+						}
+						throw error
+					}
+				})
+				const revision = sourceData(commitSchema, response.commit)
+				const inventory =
+					previous?.commit.commit.tree.sha === revision.commit.tree.sha
+						? previous.tree
+						: await githubRequest((signal) =>
+								client.git.getTree({
+									...repository,
+									tree_sha: revision.commit.tree.sha,
+									recursive: '1',
+									request: { signal },
+								})
+							)
+				const etag = etagSchema.safeParse(response.etag)
+				return sourceData(snapshotSchema, {
+					commit: revision,
+					tree: inventory,
+					...(etag.success ? { etag: etag.data } : {}),
+				})
+			},
+			{ revalidate: true }
 		)
 		const files = new Map(tree.tree.map((entry) => [entry.path, entry]))
 		// These maps live for one operation, never across requests or commits.
@@ -424,10 +456,13 @@ export function createBlogContentService(
 				assets,
 			}
 		}
-		return { files, readPost, readBytes }
+		return { files, readPost, readBytes, revision: commit.sha }
 	}
 
 	return {
+		async getRevision(): Promise<string> {
+			return (await snapshot()).revision
+		},
 		async getPostAsset(slug: string, reference: string) {
 			const path = normalizePostAssetPath(reference)
 			const contentType = path ? assetContentType(path) : undefined
@@ -493,6 +528,10 @@ function configuredService() {
 
 export async function listPosts(): Promise<Array<PostMetadata>> {
 	return configuredService().listPosts()
+}
+
+export async function getBlogRevision(): Promise<string> {
+	return configuredService().getRevision()
 }
 
 export async function getPostBySlug(slug: string): Promise<BlogPost> {

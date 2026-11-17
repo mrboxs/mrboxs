@@ -3,6 +3,10 @@
 Reviewed on 2026-11-15. The contract-first structure, `publicProcedures`, the
 `getBySlug` procedure name, and the existing Octokit/cache service are preserved.
 
+Update 2026-11-16: the detail page now renders Markdown, and its detail response
+adds prepared code tokens. See [the renderer review](./markdown-renderer-review.md).
+The text-only page and its verification below describe the earlier implementation.
+
 ## Findings fixed
 
 1. **Router context was incomplete.** `__root.tsx` required `orpc`, but
