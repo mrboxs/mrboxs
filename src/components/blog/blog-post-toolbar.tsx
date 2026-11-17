@@ -1,6 +1,8 @@
+import { useFormatForDisplay } from '@tanstack/react-hotkeys'
 import { Link, useRouter } from '@tanstack/react-router'
 
 import { useEffect, useRef, useState } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 import {
 	IconArrowLeft,
@@ -34,14 +36,42 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
+import { Kbd } from '#/components/ui/kbd'
 import { toast } from '#/components/ui/toast'
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from '#/components/ui/tooltip'
+import { blogNavigationShortcuts } from '#/hooks/use-blog-navigation'
 import { getPostMarkdown } from '#/lib/blog'
 import type { BlogPost, PostMetadata } from '#/lib/blog'
+
+function BlogActionTooltip({
+	children,
+	label,
+}: {
+	children: ReactElement
+	label: ReactNode
+}) {
+	return (
+		<Tooltip>
+			<TooltipTrigger render={children} />
+			<TooltipContent className="motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none">
+				{label}
+			</TooltipContent>
+		</Tooltip>
+	)
+}
+
+function BlogShortcutHint({
+	shortcut,
+}: {
+	shortcut: (typeof blogNavigationShortcuts)[keyof typeof blogNavigationShortcuts]
+}) {
+	const formatForDisplay = useFormatForDisplay()
+	return <Kbd>{formatForDisplay(shortcut)}</Kbd>
+}
 
 async function copyLink(url: string) {
 	try {
@@ -137,36 +167,40 @@ function PostCopyMenu({
 	return (
 		<>
 			<ButtonGroup aria-label="Copy article">
-				<Button
-					variant="secondary"
-					size="sm"
-					className="gap-1.5 border-none px-2 text-[0.8125rem]"
-					aria-label="Copy page"
-					onClick={() => void copyPage()}
-				>
-					{state === 'copied' ? (
-						<IconCheck aria-hidden="true" />
-					) : state === 'failed' ? (
-						<IconX aria-hidden="true" />
-					) : (
-						<IconCopy aria-hidden="true" />
-					)}
-					<span className="max-[28rem]:hidden">Copy page</span>
-				</Button>
+				<BlogActionTooltip label="Copy page">
+					<Button
+						variant="secondary"
+						size="sm"
+						className="gap-1.5 border-none px-2 text-[0.8125rem]"
+						aria-label="Copy page"
+						onClick={() => void copyPage()}
+					>
+						{state === 'copied' ? (
+							<IconCheck aria-hidden="true" />
+						) : state === 'failed' ? (
+							<IconX aria-hidden="true" />
+						) : (
+							<IconCopy aria-hidden="true" />
+						)}
+						<span className="max-[28rem]:hidden">Copy page</span>
+					</Button>
+				</BlogActionTooltip>
 				<ButtonGroupSeparator className="border-y-4 border-secondary dark:bg-white/20 data-vertical:my-0" />
 				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<Button
-								variant="secondary"
-								size="icon-sm"
-								className="border-none"
-								aria-label="Page options"
-							/>
-						}
-					>
-						<IconChevronDown aria-hidden="true" />
-					</DropdownMenuTrigger>
+					<BlogActionTooltip label="Page options">
+						<DropdownMenuTrigger
+							render={
+								<Button
+									variant="secondary"
+									size="icon-sm"
+									className="border-none"
+									aria-label="Page options"
+								/>
+							}
+						>
+							<IconChevronDown aria-hidden="true" />
+						</DropdownMenuTrigger>
+					</BlogActionTooltip>
 					<DropdownMenuContent
 						className="blog-action-menu w-fit min-w-48 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
 						align="end"
@@ -220,18 +254,20 @@ function PostShareMenu({ url }: { url: string }) {
 	const encodedUrl = encodeURIComponent(url)
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<Button
-						variant="secondary"
-						size="icon-sm"
-						className="border-none"
-						aria-label="Share page"
-					/>
-				}
-			>
-				<IconShare2 aria-hidden="true" />
-			</DropdownMenuTrigger>
+			<BlogActionTooltip label="Share page">
+				<DropdownMenuTrigger
+					render={
+						<Button
+							variant="secondary"
+							size="icon-sm"
+							className="border-none"
+							aria-label="Share page"
+						/>
+					}
+				>
+					<IconShare2 aria-hidden="true" />
+				</DropdownMenuTrigger>
+			</BlogActionTooltip>
 			<DropdownMenuContent
 				className="blog-action-menu w-fit min-w-48 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
 				align="end"
@@ -281,6 +317,7 @@ function PostNavigationLink({
 	direction: 'previous' | 'next'
 }) {
 	const label = direction === 'previous' ? 'Previous post' : 'Next post'
+	const shortcut = blogNavigationShortcuts[direction]
 	const icon =
 		direction === 'previous' ? (
 			<IconArrowLeft aria-hidden="true" />
@@ -289,40 +326,46 @@ function PostNavigationLink({
 		)
 	if (!post) {
 		return (
-			<Button
-				variant="secondary"
-				size="icon-sm"
-				className="border-none"
-				aria-label={label}
-				disabled
+			<BlogActionTooltip
+				label={direction === 'previous' ? 'No previous post' : 'No next post'}
 			>
-				{icon}
-			</Button>
+				<span className="inline-flex" tabIndex={-1}>
+					<Button
+						variant="secondary"
+						size="icon-sm"
+						className="border-none"
+						aria-label={label}
+						disabled
+					>
+						{icon}
+					</Button>
+				</span>
+			</BlogActionTooltip>
 		)
 	}
 	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={
-					<Link
-						to="/blog/$slug"
-						params={{ slug: post.slug }}
-						aria-label={label}
-						data-slot="button"
-						className={buttonVariants({
-							variant: 'secondary',
-							size: 'icon-sm',
-							className: 'border-none',
-						})}
-					/>
-				}
+		<BlogActionTooltip
+			label={
+				<>
+					{label} <BlogShortcutHint shortcut={shortcut} />
+				</>
+			}
+		>
+			<Link
+				to="/blog/$slug"
+				params={{ slug: post.slug }}
+				aria-label={label}
+				aria-keyshortcuts={shortcut}
+				data-slot="button"
+				className={buttonVariants({
+					variant: 'secondary',
+					size: 'icon-sm',
+					className: 'border-none',
+				})}
 			>
 				{icon}
-			</TooltipTrigger>
-			<TooltipContent>
-				{label}: {post.title}
-			</TooltipContent>
-		</Tooltip>
+			</Link>
+		</BlogActionTooltip>
 	)
 }
 
@@ -345,13 +388,15 @@ export function BlogPostToolbar({
 			className="blog-post-toolbar flex flex-wrap items-center justify-between gap-1 p-2 pl-4 sm:gap-2"
 			aria-label="Blog navigation"
 		>
-			<Link
-				to="/blog"
-				className="inline-flex h-7 shrink-0 items-center gap-2 rounded-sm text-sm tracking-wider text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
-			>
-				<IconArrowLeft className="size-4" aria-hidden="true" />
-				Blog
-			</Link>
+			<BlogActionTooltip label="Back to blog">
+				<Link
+					to="/blog"
+					className="inline-flex h-7 shrink-0 items-center gap-2 rounded-sm text-sm tracking-wider text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
+				>
+					<IconArrowLeft className="size-4" aria-hidden="true" />
+					Blog
+				</Link>
+			</BlogActionTooltip>
 			<div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1 sm:gap-2">
 				<PostCopyMenu markdown={markdown} slug={post.slug} url={url} />
 				<PostShareMenu url={url} />

@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
+import { HotkeyManager, KeyStateTracker } from '@tanstack/react-hotkeys'
 import { focusManager, type QueryClient } from '@tanstack/react-query'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
 
@@ -44,11 +45,18 @@ vi.mock('#/routes/__root', async () => {
 	const { createRootRouteWithContext, Outlet } =
 		await import('@tanstack/react-router')
 	const { orpc } = await import('#/orpc/client')
+	const { TooltipProvider } = await import('#/components/ui/tooltip')
 	return {
 		Route: createRootRouteWithContext<{
 			queryClient: QueryClient
 			orpc: typeof orpc
-		}>()({ component: Outlet }),
+		}>()({
+			component: () => (
+				<TooltipProvider>
+					<Outlet />
+				</TooltipProvider>
+			),
+		}),
 	}
 })
 
@@ -73,6 +81,8 @@ afterEach(async () => {
 	router.options.context.queryClient.clear()
 	router.history.destroy()
 	container.remove()
+	HotkeyManager.resetInstance()
+	KeyStateTracker.resetInstance()
 	vi.useRealTimers()
 	focusManager.setFocused(undefined)
 	vi.unstubAllGlobals()
@@ -96,7 +106,253 @@ async function advancePolling(milliseconds: number) {
 	})
 }
 
+function mockNavigationPosts() {
+	const posts = [
+		{ ...blogMetadata, slug: 'newer-post', title: 'Newer post' },
+		blogMetadata,
+		{ ...blogMetadata, slug: 'older-post', title: 'Older post' },
+	]
+	vi.mocked(listPosts).mockResolvedValue(posts)
+	vi.mocked(getPostBySlug).mockImplementation((slug) =>
+		Promise.resolve({
+			...blogPost,
+			...posts.find((post) => post.slug === slug),
+		})
+	)
+	const { queryClient, orpc } = router.options.context
+	queryClient.setQueryData(orpc.blog.list.queryKey({ input: {} }), posts)
+	return posts
+}
+
+async function renderNavigablePost() {
+	await renderPath('/blog/tulisan-pertama')
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 0))
+	})
+	if (!container.querySelector('a[aria-label="Next post"]')) {
+		throw new Error('Post navigation did not finish loading')
+	}
+}
+
+async function pressArrow(
+	key: 'ArrowLeft' | 'ArrowRight',
+	target: HTMLElement = document.body,
+	options: KeyboardEventInit = {},
+	release = true
+) {
+	const event = new KeyboardEvent('keydown', {
+		key,
+		code: key,
+		bubbles: true,
+		cancelable: true,
+		...options,
+	})
+	await act(async () => {
+		target.dispatchEvent(event)
+		await Promise.resolve()
+		await router.load()
+		if (release) {
+			target.dispatchEvent(
+				new KeyboardEvent('keyup', { key, code: key, bubbles: true })
+			)
+		}
+	})
+	return event
+}
+
 describe('blog routes', () => {
+	it('navigates with the displayed arrow shortcuts using the current neighbors', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		await pressArrow('ArrowRight')
+		expect(router.state.location.pathname).toBe('/blog/older-post')
+		expect(container.querySelector('#post-title')?.textContent).toBe(
+			'Older post'
+		)
+		await pressArrow('ArrowLeft')
+		expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+	})
+
+	it('does not navigate repeatedly while an arrow key is held across article changes', async () => {
+		const posts = mockNavigationPosts()
+		posts.push({ ...blogMetadata, slug: 'oldest-post', title: 'Oldest post' })
+		await renderNavigablePost()
+		await pressArrow('ArrowRight', document.body, {}, false)
+		expect(router.state.location.pathname).toBe('/blog/older-post')
+		await pressArrow('ArrowRight', document.body, { repeat: true })
+		expect(router.state.location.pathname).toBe('/blog/older-post')
+		await pressArrow('ArrowRight')
+		expect(router.state.location.pathname).toBe('/blog/oldest-post')
+	})
+
+	it.each([
+		{ altKey: true },
+		{ ctrlKey: true },
+		{ metaKey: true },
+		{ shiftKey: true },
+		{ isComposing: true },
+	])(
+		'leaves modified or composing arrow presses alone: %j',
+		async (options) => {
+			mockNavigationPosts()
+			await renderNavigablePost()
+			const event = await pressArrow('ArrowRight', document.body, options)
+			expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+			expect(event.defaultPrevented).toBe(false)
+		}
+	)
+
+	it('does not navigate from editable controls or article scrolling regions', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		for (const tag of [
+			'input',
+			'textarea',
+			'select',
+			'div',
+			'pre',
+			'section',
+		]) {
+			const field = document.createElement(tag)
+			field.tabIndex = 0
+			if (tag === 'div') field.contentEditable = 'true'
+			if (tag === 'section') field.setAttribute('role', 'region')
+			document.body.appendChild(field)
+			try {
+				field.focus()
+				const event = await pressArrow('ArrowRight', field)
+				expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+				expect(event.defaultPrevented).toBe(false)
+			} finally {
+				field.remove()
+			}
+		}
+	})
+
+	it('lets the page-options menu keep its arrow keys', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		const options = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Page options"]'
+		)
+		if (!options) throw new Error('Missing page options')
+		await actAndFlush(() => options.click())
+		const item = document.querySelector<HTMLAnchorElement>('a[role="menuitem"]')
+		if (!item) throw new Error('Missing menu item')
+		await actAndFlush(() => item.focus())
+		await pressArrow('ArrowRight', item)
+		expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+		expect(document.querySelector('[role="menu"]')).not.toBeNull()
+	})
+
+	it('keeps an image preview open when an arrow is pressed in its dialog', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		const image = container.querySelector<HTMLButtonElement>(
+			'button[aria-label^="Enlarge image"]'
+		)
+		if (!image) throw new Error('Missing article image')
+		await actAndFlush(() => image.click())
+		const close = document.querySelector<HTMLButtonElement>(
+			'[role="dialog"] [data-slot="dialog-close"]'
+		)
+		if (!close) throw new Error('Missing image dialog')
+		await actAndFlush(() => close.focus())
+		await pressArrow('ArrowRight', close)
+		expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+		expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+	})
+
+	it('does not override arrow events already handled by another control', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		const event = new KeyboardEvent('keydown', {
+			key: 'ArrowRight',
+			code: 'ArrowRight',
+			bubbles: true,
+			cancelable: true,
+		})
+		event.preventDefault()
+		await actAndFlush(() => document.body.dispatchEvent(event))
+		expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+	})
+
+	it('unregisters article shortcuts when the page unmounts', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		const navigate = vi.spyOn(router, 'navigate')
+		await actAndFlush(() => root.render(null))
+		await actAndFlush(() => {
+			document.body.dispatchEvent(
+				new KeyboardEvent('keydown', {
+					key: 'ArrowRight',
+					code: 'ArrowRight',
+					bubbles: true,
+					cancelable: true,
+				})
+			)
+		})
+		expect(navigate).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		['nav a[href="/blog"]', 'Back to blog', undefined],
+		['button[aria-label="Copy page"]', 'Copy page', undefined],
+		['button[aria-label="Page options"]', 'Page options', undefined],
+		['button[aria-label="Share page"]', 'Share page', undefined],
+		['a[aria-label="Previous post"]', 'Previous post', '←'],
+		['a[aria-label="Next post"]', 'Next post', '→'],
+	] as const)(
+		'shows the shadcn tooltip for %s with its shortcut hint',
+		async (selector, label, shortcut) => {
+			mockNavigationPosts()
+			await renderNavigablePost()
+			const trigger = container.querySelector<HTMLElement>(selector)
+			if (!trigger) throw new Error(`Missing ${label}`)
+			await actAndFlush(() => {
+				trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+				trigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+			})
+			await act(async () => {
+				await new Promise((resolve) => setTimeout(resolve, 0))
+			})
+			const tooltip = document.querySelector(
+				'[data-slot="tooltip-content"]:not([data-closed])'
+			)
+			if (!tooltip) throw new Error(`Missing ${label} tooltip`)
+			expect(tooltip.textContent).toContain(label)
+			if (shortcut) {
+				expect(tooltip.querySelector('kbd')?.textContent).toBe(shortcut)
+			}
+			expect(container.querySelector('button button')).toBeNull()
+		}
+	)
+
+	it('exposes the available navigation shortcuts to assistive technology', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		expect(
+			container
+				.querySelector('a[aria-label="Previous post"]')
+				?.getAttribute('aria-keyshortcuts')
+		).toBe('ArrowLeft')
+		expect(
+			container
+				.querySelector('a[aria-label="Next post"]')
+				?.getAttribute('aria-keyshortcuts')
+		).toBe('ArrowRight')
+	})
+
+	it('keeps missing neighbors disabled and leaves their keys unclaimed', async () => {
+		await renderPath('/blog/tulisan-pertama')
+		for (const key of ['ArrowLeft', 'ArrowRight'] as const) {
+			const event = await pressArrow(key)
+			expect(event.defaultPrevented).toBe(false)
+		}
+		expect(router.state.location.pathname).toBe('/blog/tulisan-pertama')
+		expect(container.querySelector('nav [aria-keyshortcuts]')).toBeNull()
+	})
+
 	it('updates the open list on the next revision poll and leaves unchanged content cached', async () => {
 		vi.useFakeTimers()
 		focusManager.setFocused(true)

@@ -10,6 +10,7 @@ import {
 } from '#/components/blog/blog-feedback'
 import { BlogPostToolbar } from '#/components/blog/blog-post-toolbar'
 import { MarkdownRenderer } from '#/components/markdown-renderer'
+import { useBlogNavigation } from '#/hooks/use-blog-navigation'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
 
 export const Route = createFileRoute('/blog/$slug')({
@@ -63,6 +64,7 @@ function BlogDetailPage() {
 	const postIndex = posts?.findIndex((item) => item.slug === slug) ?? -1
 	const previous = postIndex > 0 ? posts?.[postIndex - 1] : undefined
 	const next = postIndex >= 0 ? posts?.[postIndex + 1] : undefined
+	useBlogNavigation(previous, next)
 
 	return (
 		<main id="main-content" className="overflow-x-clip pt-14">
