@@ -10,8 +10,10 @@ import {
 } from '#/components/blog/blog-feedback'
 import { BlogPostToolbar } from '#/components/blog/blog-post-toolbar'
 import { MarkdownRenderer } from '#/components/markdown-renderer'
+import { ContentImage } from '#/components/markdown-renderer/image'
 import { useBlogNavigation } from '#/hooks/use-blog-navigation'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
+import { getPostAssetUrl } from '#/lib/blog'
 
 export const Route = createFileRoute('/blog/$slug')({
 	loader: async ({ context, params }) => {
@@ -96,6 +98,19 @@ function BlogDetailPage() {
 							<p className="mb-5 text-base/7 wrap-anywhere text-muted-foreground">
 								{post.description}
 							</p>
+							<div data-slot="post-cover" className="mb-6 aspect-video">
+								<ContentImage
+									src={getPostAssetUrl(post.cover.src)}
+									alt={post.cover.alt}
+									assets={post.assets}
+									preview={false}
+									loading="eager"
+									fetchPriority="high"
+									width={1200}
+									height={675}
+									className="aspect-video w-full rounded-xl"
+								/>
+							</div>
 							<MarkdownRenderer
 								slug={post.slug}
 								content={post.body}

@@ -682,6 +682,31 @@ describe('blog routes', () => {
 		)
 	})
 
+	it('places the published cover between the description and body and prioritizes it over body images', async () => {
+		await renderPath('/blog/tulisan-pertama')
+		const cover = container.querySelector('[data-slot="post-cover"]')
+		if (!cover) throw new Error('Missing post cover')
+		expect(cover.previousElementSibling?.textContent).toBe(blogPost.description)
+		expect(cover.nextElementSibling?.getAttribute('aria-label')).toBe(
+			'Article content'
+		)
+		const image = cover.querySelector('img')
+		expect(image?.getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(image?.alt).toBe(blogPost.cover.alt)
+		expect(image?.getAttribute('loading')).toBe('eager')
+		expect(image?.getAttribute('fetchpriority')).toBe('high')
+		expect(image?.width).toBe(1200)
+		expect(image?.height).toBe(675)
+		expect(cover.querySelector('button')).toBeNull()
+		expect(
+			container
+				.querySelector('section[aria-label="Article content"] img')
+				?.getAttribute('loading')
+		).toBe('lazy')
+	})
+
 	it('keeps heading permalinks distinct from page and footnote IDs', async () => {
 		vi.mocked(getPostBySlug).mockResolvedValue({
 			...blogPost,

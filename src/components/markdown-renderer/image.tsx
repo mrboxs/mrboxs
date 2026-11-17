@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, ReactNode } from 'react'
+
+import { cn } from 'cn'
 
 import { markdownAssetUrl } from '#/components/markdown-renderer/asset'
 import {
@@ -32,13 +34,21 @@ export function ContentImage({
 	title,
 	assets,
 	preview = true,
+	loading = 'lazy',
+	fetchPriority,
+	width,
+	height,
+	className,
 }: {
 	src?: string
 	alt?: string
 	title?: string
 	assets: BlogPost['assets']
 	preview?: boolean
-}) {
+} & Pick<
+	ComponentPropsWithoutRef<'img'>,
+	'loading' | 'fetchPriority' | 'width' | 'height' | 'className'
+>) {
 	const src = imageSource(reference, assets)
 	const [failedSource, setFailedSource] = useState<string>()
 	if (!src || failedSource === src) {
@@ -53,9 +63,12 @@ export function ContentImage({
 			src={src}
 			alt={alt}
 			title={title}
-			loading="lazy"
+			loading={loading}
+			fetchPriority={fetchPriority}
+			width={width}
+			height={height}
 			decoding="async"
-			className="h-auto max-w-full object-contain"
+			className={cn('mx-auto h-auto max-w-full object-contain', className)}
 			ref={(element) => {
 				if (element?.complete) {
 					void element.decode().catch(() => setFailedSource(src))
@@ -95,7 +108,7 @@ function ImagePreview({
 			<DialogTrigger
 				type="button"
 				aria-label={`Enlarge image: ${label}`}
-				className="not-prose inline-block max-w-full cursor-zoom-in rounded-sm align-middle transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
+				className="not-prose mx-auto block w-fit max-w-full cursor-zoom-in rounded-sm align-middle transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
 			>
 				{children}
 			</DialogTrigger>
