@@ -2,14 +2,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
-import type { QueryClient } from '@tanstack/react-query'
+import { focusManager, type QueryClient } from '@tanstack/react-query'
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router'
 
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
 import {
+	getBlogRevision,
 	getPostBySlug,
+	BlogSourceError,
 	InvalidBlogContentError,
 	listPosts,
 	PostNotFoundError,
@@ -24,6 +26,7 @@ vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
 	...(await importOriginal()),
 	listPosts: vi.fn(),
 	getPostBySlug: vi.fn(),
+	getBlogRevision: vi.fn(),
 }))
 vi.mock(import('#/orpc/client'), async () => {
 	const { createRouterClient } = await import('@orpc/server')
@@ -58,6 +61,7 @@ beforeEach(() => {
 	vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 	vi.mocked(listPosts).mockResolvedValue([blogMetadata])
 	vi.mocked(getPostBySlug).mockResolvedValue(blogPost)
+	vi.mocked(getBlogRevision).mockResolvedValue(blogPost.cover.src.commit)
 	container = document.createElement('div')
 	document.body.appendChild(container)
 	root = createRoot(container)
@@ -69,6 +73,8 @@ afterEach(async () => {
 	router.options.context.queryClient.clear()
 	router.history.destroy()
 	container.remove()
+	vi.useRealTimers()
+	focusManager.setFocused(undefined)
 	vi.unstubAllGlobals()
 	vi.restoreAllMocks()
 })
@@ -84,7 +90,164 @@ async function renderPath(path: string) {
 	})
 }
 
+async function advancePolling(milliseconds: number) {
+	await act(async () => {
+		await vi.advanceTimersByTimeAsync(milliseconds)
+	})
+}
+
 describe('blog routes', () => {
+	it('updates the open list on the next revision poll and leaves unchanged content cached', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		await renderPath('/blog')
+		await advancePolling(0)
+		expect(listPosts).toHaveBeenCalledTimes(1)
+		const nextRevision = 'b'.repeat(40)
+		vi.mocked(getBlogRevision).mockResolvedValue(nextRevision)
+		vi.mocked(listPosts).mockResolvedValue([
+			{
+				...blogMetadata,
+				slug: 'new-post',
+				title: 'Published without a reload',
+				cover: {
+					...blogMetadata.cover,
+					src: { commit: nextRevision, path: 'posts/new-post/cover.png' },
+				},
+			},
+			blogMetadata,
+		])
+		await advancePolling(4_999)
+		expect(container.textContent).not.toContain('Published without a reload')
+		await advancePolling(2)
+		expect(container.textContent).toContain('Published without a reload')
+		expect(container.textContent).toContain('2 tulisan')
+		expect(listPosts).toHaveBeenCalledTimes(2)
+		await advancePolling(5_001)
+		expect(getBlogRevision).toHaveBeenCalledTimes(3)
+		expect(listPosts).toHaveBeenCalledTimes(2)
+	})
+
+	it('refreshes an open article, its loader metadata, and its neighbors after a push', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(0)
+		const nextRevision = 'b'.repeat(40)
+		const updated = {
+			...blogPost,
+			title: 'Updated after push',
+			body: '## Updated body\n\nNew paragraph.',
+			cover: {
+				...blogPost.cover,
+				src: { ...blogPost.cover.src, commit: nextRevision },
+			},
+		}
+		vi.mocked(getBlogRevision).mockResolvedValue(nextRevision)
+		vi.mocked(getPostBySlug).mockResolvedValue(updated)
+		vi.mocked(listPosts).mockResolvedValue([
+			{ ...blogMetadata, slug: 'new-post', title: 'New post' },
+			updated,
+		])
+		await advancePolling(5_010)
+		expect(container.querySelector('#post-title')?.textContent).toBe(
+			'Updated after push'
+		)
+		expect(container.querySelector('article h2')?.textContent).toBe(
+			'Updated body'
+		)
+		expect(
+			container
+				.querySelector('a[aria-label="Previous post"]')
+				?.getAttribute('href')
+		).toBe('/blog/new-post')
+		expect(router.state.matches.at(-1)).toMatchObject({
+			loaderData: { title: 'Updated after push' },
+		})
+		expect(getPostBySlug).toHaveBeenCalledTimes(2)
+	})
+
+	it('replaces a withdrawn article with the not-found boundary after a revision change', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(0)
+		vi.mocked(getBlogRevision).mockResolvedValue('b'.repeat(40))
+		vi.mocked(listPosts).mockResolvedValue([])
+		vi.mocked(getPostBySlug).mockRejectedValue(new PostNotFoundError())
+		await advancePolling(5_001)
+		expect(container.querySelector('article')).toBeNull()
+		expect(container.textContent).toContain('Tulisan tidak ditemukan')
+	})
+
+	it('detects a push between the initial loader and the first revision check', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		vi.mocked(getBlogRevision).mockResolvedValue('b'.repeat(40))
+		vi.mocked(getPostBySlug)
+			.mockResolvedValueOnce(blogPost)
+			.mockResolvedValue({
+				...blogPost,
+				title: 'Changed during initial load',
+				cover: {
+					...blogPost.cover,
+					src: { ...blogPost.cover.src, commit: 'b'.repeat(40) },
+				},
+			})
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(1)
+		expect(container.querySelector('#post-title')?.textContent).toBe(
+			'Changed during initial load'
+		)
+	})
+
+	it('keeps readable content during revision failures and backs off before retrying', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		vi.mocked(getBlogRevision).mockRejectedValue(
+			new BlogSourceError('rate-limit', 403)
+		)
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(5_001)
+		expect(container.querySelector('#post-title')?.textContent).toBe(
+			blogPost.title
+		)
+		expect(getBlogRevision).toHaveBeenCalledTimes(1)
+		expect(getPostBySlug).toHaveBeenCalledTimes(1)
+		vi.mocked(getBlogRevision).mockResolvedValue(blogPost.cover.src.commit)
+		await advancePolling(55_000)
+		expect(getBlogRevision).toHaveBeenCalledTimes(2)
+		expect(getPostBySlug).toHaveBeenCalledTimes(1)
+	})
+
+	it('ignores a cached revision until the current probe succeeds', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		const { queryClient, orpc } = router.options.context
+		queryClient.setQueryData(orpc.blog.revision.queryKey({ input: {} }), {
+			revision: 'b'.repeat(40),
+		})
+		vi.mocked(getBlogRevision).mockRejectedValue(new BlogSourceError('network'))
+		await renderPath('/blog/tulisan-pertama')
+		await advancePolling(10)
+		expect(getBlogRevision).toHaveBeenCalledTimes(1)
+		expect(getPostBySlug).toHaveBeenCalledTimes(1)
+		expect(container.querySelector('#post-title')?.textContent).toBe(
+			blogPost.title
+		)
+	})
+
+	it('stops revision polling when the blog page unmounts', async () => {
+		vi.useFakeTimers()
+		focusManager.setFocused(true)
+		await renderPath('/blog')
+		await advancePolling(0)
+		expect(getBlogRevision).toHaveBeenCalledTimes(1)
+		await actAndFlush(() => root.render(null))
+		await advancePolling(10_001)
+		expect(getBlogRevision).toHaveBeenCalledTimes(1)
+	})
+
 	it('renders list data through the oRPC Query cache and follows the detail link', async () => {
 		await renderPath('/blog')
 		expect(container.textContent).toContain(blogMetadata.title)

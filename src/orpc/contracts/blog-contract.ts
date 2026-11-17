@@ -64,6 +64,20 @@ const blogPostSchema = blogMetadataSchema.extend({
 })
 
 export const blogContract = {
+	revision: baseContract
+		.meta(
+			openapi({
+				path: '/blog-revision',
+				method: 'QUERY',
+				inputStructure: 'detailed',
+				outputStructure: 'compact',
+				operationId: 'getBlogRevision',
+				tags: ['Blogs'],
+			})
+		)
+		.input(z.object({}))
+		.output(z.object({ revision: z.string().regex(/^[a-f0-9]{40}$/) })),
+
 	list: baseContract
 		.meta(
 			openapi({

@@ -1,5 +1,6 @@
 import {
 	BlogSourceError,
+	getBlogRevision,
 	getPostBySlug,
 	listPosts,
 	PostNotFoundError,
@@ -7,6 +8,17 @@ import {
 import { publicProcedures } from '#/orpc/procedures'
 
 export const blogRouter = {
+	revision: publicProcedures.blog.revision.handler(async ({ errors }) => {
+		try {
+			return { revision: await getBlogRevision() }
+		} catch (error) {
+			if (error instanceof BlogSourceError && error.kind === 'rate-limit') {
+				throw errors.TOO_MANY_REQUESTS()
+			}
+			throw errors.INTERNAL_SERVER_ERROR()
+		}
+	}),
+
 	list: publicProcedures.blog.list.handler(async ({ errors }) => {
 		try {
 			return await listPosts()

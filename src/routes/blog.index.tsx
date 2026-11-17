@@ -2,6 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 import { BlogError, BlogPending } from '#/components/blog/blog-feedback'
+import { useBlogUpdates } from '#/hooks/use-blog-updates'
 
 export const Route = createFileRoute('/blog/')({
 	loader: async ({ context }) => {
@@ -25,6 +26,7 @@ function BlogListPage() {
 	const { data: posts } = useSuspenseQuery(
 		orpc.blog.list.queryOptions({ input: {}, retry: false, staleTime: 30_000 })
 	)
+	useBlogUpdates(posts[0]?.cover.src.commit)
 
 	return (
 		<main

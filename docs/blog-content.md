@@ -30,8 +30,9 @@ The trusted server constants are owner `mrboxs`, repository `written-by-boxs`,
 and branch `main`. Callers cannot select another repository, ref, or file path.
 The private repository's README is authoritative. The implementation was checked
 against commit `2ed54926e6b7fa4a6c1517c7c9c1234688b14bf9` on 2026-11-15; it resolves
-the current `main` through a ten-minute server cache rather than fixing that
-reviewed commit.
+the current `main` on every operation using conditional GitHub requests rather
+than fixing that reviewed commit. A retained snapshot is reused only after GitHub
+confirms its ETag, so its storage TTL does not delay publication.
 
 - Discover `posts/<slug>/index.md`; folder and frontmatter slug must match.
   Slugs and author IDs use lowercase letters/numbers separated by single hyphens.
@@ -136,16 +137,13 @@ getPostAssetUrl(post.cover.src)
 // /api/blog/assets/markdown-showcase/cover.png
 ```
 
-The endpoint obtains an accepted `main` snapshot on every request and serves
-only assets in a validated public post's inventory. The snapshot can be cached
-for up to ten minutes. It takes no repository,
-branch, token, or arbitrary commit input. References retain their commit for
-future snapshot-aware integrations, but the generated URL intentionally uses
-the accepted publication state: publishing, edits, deletions, asset removal, and
-public-to-draft changes may take until the snapshot expires to become visible.
-There is no immediate revocation guarantee. An older page may load the newer
-version of an image after refresh. All reads within an individual request use
-one snapshot, including requests that were already in flight at expiration.
+The endpoint revalidates `main` with GitHub on every request and serves only assets
+in a validated public post's current inventory. It takes no repository, branch,
+token, or arbitrary commit input. Publishing, edits, deletions, asset removal,
+and public-to-draft changes are picked up on the next source check, without
+waiting for a cache TTL. An older page may load a newer version of an image.
+All reads within one request stay pinned to its accepted snapshot; an in-flight
+request is not retroactively revoked by a later push.
 
 Supported image extensions are PNG, JPG/JPEG, GIF, WebP, AVIF, and SVG, with a
 5 MiB limit per blob (also applied to Markdown/author reads). Other file types,
@@ -190,13 +188,18 @@ and an absolute expiry. Keys begin `blog-content-v1/mrboxs/written-by-boxs/`:
 
 | Record                                            | Identity                                   | Lifetime    |
 | ------------------------------------------------- | ------------------------------------------ | ----------- |
-| Accepted publication snapshot                     | `publication/main`                         | 600 seconds |
+| Snapshot and ETag, revalidated on every operation | `publication/main`                         | 600 seconds |
 | Validated frontmatter and untouched Markdown body | `post/<commit>/<slug>/<Markdown blob SHA>` | 24 hours    |
 | Validated author data                             | `author/<blob SHA>`                        | 24 hours    |
 | Image bytes encoded as base64                     | `image/<blob SHA>`                         | 24 hours    |
 
-The mutable record contains the validated commit and complete, nontruncated
-recursive tree together. All other reads use identities from that exact tree.
+The mutable record contains the validated commit, complete nontruncated recursive
+tree, and an optional validated ETag. Every operation sends an authenticated
+conditional request for `main`; only a 304 with a valid prior snapshot can reuse
+the commit. A 200 validates the returned commit and fetches its tree if the tree
+SHA changed. Unchanged trees and blobs remain reusable. The ten-minute TTL is
+record retention, never a freshness window that bypasses GitHub.
+All other reads use identities from that exact tree.
 Only parsed, valid frontmatter is stored; public articles also pass cover and
 author validation before their content is stored. Valid draft frontmatter/body
 can be cached internally to avoid repeated draft reads, but are never returned
@@ -207,13 +210,13 @@ bytes, a previous commit in a `BlogAsset`, and arbitrary caller paths cannot
 authorize an image. The immutable TTL never extends publication validity.
 
 Expiry is checked in the application even if the backend returns an expired
-record. Reads do not extend TTL. Freshness starts before the upstream fill,
-so a slow write or competing older fill cannot extend an old snapshot's lifetime.
-After expiration, upstream/config/rate-limit/invalid-content errors remain
-errors: no expired publication state is served, no stale-if-error behavior, and
-no source error is converted to article/asset not-found. Successful tree lookups
-alone establish missing paths; valid draft metadata establishes draft status.
-Failures and negative lookup results are not stored as content/errors.
+record. Immutable reads do not extend their TTL. A successful publication
+revalidation can refresh its retained record, but every subsequent use still
+requires another GitHub check. Upstream/config/rate-limit/invalid-content errors
+remain errors even with an unexpired record: there is no stale-if-error behavior
+and no source error is converted to article/asset not-found. Successful tree
+lookups alone establish missing paths; valid draft metadata establishes draft
+status. Failures and negative lookup results are not stored as content/errors.
 
 Cache failures, absent Cache API support, evictions, malformed JSON, incompatible
 schemas, wrong identities, invalid lifetimes, future timestamps, and expired
@@ -237,8 +240,9 @@ accepted snapshots, not arbitrary requests.
 
 The [Workers Cache API](https://developers.cloudflare.com/workers/runtime-apis/cache/)
 is local to a data center, not globally replicated or strongly consistent.
-Different data centers can temporarily accept different unexpired snapshots;
-cold locations and evictions add GitHub reads. Concurrent cold requests may each
+Each data center must revalidate its snapshot against GitHub before serving it;
+cache locality therefore does not create a ten-minute publication lag. Cold
+locations and evictions add GitHub reads. Concurrent cold requests may each
 fill the cache. Only operation-local blob/author promises are deduplicated;
 there are no cross-request I/O promises, global locks, or background refreshes
 that could cross Workers execution contexts. Cache writes are awaited. Cache
@@ -251,6 +255,34 @@ This implementation was not deployed and does not claim measured production hits
 store and clock. An injected client defaults to uncached operation and never
 implicitly shares the configured application's cache. Separate stores remain
 isolated; explicitly reusing a store opts into sharing validated entries.
+
+## Automatic browser updates
+
+`QUERY /api/reference/blog-revision` returns only the currently validated commit
+SHA as `{ revision }`. It does not load article blobs or prepare Markdown.
+The existing RPC transport exposes the same procedure as `blog.revision`.
+
+`useBlogUpdates()` checks that revision every five seconds while a blog page is
+active. Its initial baseline comes from the loaded post cover's snapshot commit,
+so a push between SSR and the first check is also detected. An empty list has no
+baseline and is reconciled on its first successful check. Unchanged revisions
+do not refetch article data or run Markdown preparation.
+
+A changed revision invalidates the list and detail Query caches, refreshes the
+active route loader and its head metadata, and updates neighboring-post links.
+An article that becomes a draft or is deleted goes through the existing 404
+boundary. Polling stops when the blog page unmounts, pauses in hidden tabs, and
+checks again on focus/reconnect. Revision-check failures preserve the readable
+page and back off to a 60-second interval; the regular route error boundaries
+still handle actual content read failures.
+
+This is automatic polling, not a webhook or server-push subscription. Detection
+normally takes the next five-second interval plus network and rendering time,
+and works in localhost as well as production without a publicly reachable
+webhook endpoint or new credentials/resources. GitHub's
+[conditional-request guidance](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests)
+states that authenticated 304 responses do not consume the primary rate limit;
+network requests and secondary limits still apply.
 
 ## Validation
 
@@ -265,10 +297,13 @@ metadata and author validation, unsafe paths, body preservation, snapshot
 consistency, deduplicated discovery, error classification/redaction, and the
 call-time Void credential boundary. It also uses mock clocks, mock cache stores,
 and a mocked Workers Cache API with real Response serialization to cover warm
-read counts, immutable snapshot consistency, exact TTL expiration, publishing,
-edits, draft/deletion/asset revocation, retained historical bytes, failed and
-malformed cache records, upstream failures at expiration, storage/decoded size
-bounds, independent clients/stores, and cached GET/HEAD security headers.
+read counts, ETag/304 revalidation, immutable snapshot consistency, exact TTL
+expiration, publishing, edits, draft/deletion/asset revocation without waiting
+for expiry, retained historical bytes, failed and malformed cache records,
+upstream failures with warm caches, storage/decoded size bounds, independent
+clients/stores, and cached GET/HEAD security headers. Route tests use simulated
+pushes and fake timers to cover automatic list/detail/metadata/navigation refresh,
+withdrawn articles, initial-load races, backoff, and polling cleanup.
 
 Read-only verification against the actual private repo at the reviewed commit
 returned only `markdown-showcase`, resolved `mrboxs`, and preserved all 35,720

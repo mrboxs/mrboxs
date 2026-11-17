@@ -10,6 +10,7 @@ import {
 } from '#/components/blog/blog-feedback'
 import { BlogPostToolbar } from '#/components/blog/blog-post-toolbar'
 import { MarkdownRenderer } from '#/components/markdown-renderer'
+import { useBlogUpdates } from '#/hooks/use-blog-updates'
 
 export const Route = createFileRoute('/blog/$slug')({
 	loader: async ({ context, params }) => {
@@ -58,6 +59,7 @@ function BlogDetailPage() {
 	const { data: posts, isPending: navigationPending } = useQuery(
 		orpc.blog.list.queryOptions({ input: {}, retry: false, staleTime: 30_000 })
 	)
+	useBlogUpdates(post.cover.src.commit)
 	const postIndex = posts?.findIndex((item) => item.slug === slug) ?? -1
 	const previous = postIndex > 0 ? posts?.[postIndex - 1] : undefined
 	const next = postIndex >= 0 ? posts?.[postIndex + 1] : undefined
