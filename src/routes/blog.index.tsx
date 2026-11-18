@@ -15,7 +15,7 @@ import {
 } from '#/components/ui/input-group'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
 
-const description = 'Stories, milestones, and things I learn along the way.'
+const description = `Things I've built, tried, and figured out.`
 
 export const Route = createFileRoute('/blog/')({
 	loader: async ({ context }) => {

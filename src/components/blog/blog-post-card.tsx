@@ -22,11 +22,14 @@ export function BlogPostCard({
 	post,
 	eager = false,
 	priority = false,
+	headingAs = 'h2',
 }: {
 	post: PostMetadata
 	eager?: boolean
 	priority?: boolean
+	headingAs?: 'h2' | 'h3'
 }) {
+	const Heading = headingAs
 	return (
 		<Card variant="ghost" className="relative h-full gap-2 p-2">
 			<CardContent className="px-0">
@@ -50,7 +53,7 @@ export function BlogPostCard({
 			</CardContent>
 			<CardHeader className="gap-1 p-2">
 				<CardTitle>
-					<h2 className="text-lg/snug font-medium text-balance wrap-anywhere">
+					<Heading className="text-lg/snug font-medium text-balance wrap-anywhere">
 						<Link
 							to="/blog/$slug"
 							params={{ slug: post.slug }}
@@ -62,7 +65,7 @@ export function BlogPostCard({
 							/>
 							{post.title}
 						</Link>
-					</h2>
+					</Heading>
 				</CardTitle>
 				<CardDescription>
 					<time dateTime={post.publishedAt}>

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 import { About } from '#/components/portfolio/about'
+import { Blog } from '#/components/portfolio/blog'
 import {
 	FrameWidthDimension,
 	ProfileSeparator,
@@ -28,6 +29,8 @@ function Home() {
 				<About />
 				<SectionSeparator />
 				<GitHubContributions />
+				<SectionSeparator />
+				<Blog />
 				<SectionSeparator />
 			</div>
 		</main>
