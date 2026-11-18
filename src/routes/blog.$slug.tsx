@@ -1,6 +1,8 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
+import { useMemo } from 'react'
+
 import { ORPCError } from '@orpc/client'
 
 import {
@@ -9,8 +11,10 @@ import {
 	BlogPending,
 } from '#/components/blog/blog-feedback'
 import { BlogPostToolbar } from '#/components/blog/blog-post-toolbar'
+import { TOCMinimap } from '#/components/custom/toc-minimap'
 import { MarkdownRenderer } from '#/components/markdown-renderer'
 import { ContentImage } from '#/components/markdown-renderer/image'
+import { articleHeadings } from '#/constants/headings'
 import { useBlogNavigation } from '#/hooks/use-blog-navigation'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
 import { getPostAssetUrl } from '#/lib/blog'
@@ -67,6 +71,15 @@ function BlogDetailPage() {
 	const previous = postIndex > 0 ? posts?.[postIndex - 1] : undefined
 	const next = postIndex >= 0 ? posts?.[postIndex + 1] : undefined
 	useBlogNavigation(previous, next)
+	const tocItems = useMemo(
+		() =>
+			articleHeadings(post.body).map(({ id, title, depth }) => ({
+				title,
+				depth,
+				url: `#${id}`,
+			})),
+		[post.body]
+	)
 
 	return (
 		<main id="main-content" className="overflow-x-clip pt-14">
@@ -111,6 +124,11 @@ function BlogDetailPage() {
 									className="aspect-video w-full rounded-xl"
 								/>
 							</div>
+							{tocItems.length > 0 && (
+								<div className="mb-4 flex justify-end lg:fixed lg:top-1/2 lg:left-[calc(50%+24rem)] lg:mb-0 lg:-translate-y-1/2">
+									<TOCMinimap key={post.slug} items={tocItems} />
+								</div>
+							)}
 							<MarkdownRenderer
 								slug={post.slug}
 								content={post.body}

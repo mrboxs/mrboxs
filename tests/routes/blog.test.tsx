@@ -23,6 +23,7 @@ import { blogMetadata, blogPost } from '../helpers/blog'
 import { actAndFlush } from '../helpers/react'
 
 vi.mock('void/env', () => ({ env: {} }))
+vi.mock('#/hooks/use-sound', () => ({ useSound: () => [vi.fn(), {}] }))
 vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
 	...(await importOriginal()),
 	listPosts: vi.fn(),
@@ -421,6 +422,14 @@ describe('blog routes', () => {
 			loaderData: { title: 'Updated after push' },
 		})
 		expect(getPostBySlug).toHaveBeenCalledTimes(2)
+		const toc = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Table of contents"]'
+		)
+		if (!toc) throw new Error('Missing updated TOC')
+		await actAndFlush(() => toc.click())
+		expect(
+			document.querySelector('nav[aria-label="On this page"]')?.textContent
+		).toContain('Updated body')
 	})
 
 	it('replaces a withdrawn article with the not-found boundary after a revision change', async () => {
@@ -687,9 +696,14 @@ describe('blog routes', () => {
 		const cover = container.querySelector('[data-slot="post-cover"]')
 		if (!cover) throw new Error('Missing post cover')
 		expect(cover.previousElementSibling?.textContent).toBe(blogPost.description)
-		expect(cover.nextElementSibling?.getAttribute('aria-label')).toBe(
-			'Article content'
-		)
+		expect(
+			cover.nextElementSibling?.querySelector(
+				'button[aria-label="Table of contents"]'
+			)
+		).not.toBeNull()
+		expect(
+			cover.nextElementSibling?.nextElementSibling?.getAttribute('aria-label')
+		).toBe('Article content')
 		const image = cover.querySelector('img')
 		expect(image?.getAttribute('src')).toBe(
 			'/api/blog/assets/tulisan-pertama/cover.png'
@@ -705,6 +719,52 @@ describe('blog routes', () => {
 				.querySelector('section[aria-label="Article content"] img')
 				?.getAttribute('loading')
 		).toBe('lazy')
+	})
+
+	it('builds the TOC from the same duplicate, formatted and non-ASCII headings as the renderer', async () => {
+		vi.mocked(getPostBySlug).mockResolvedValue({
+			...blogPost,
+			body: '# Intro\n\n## Intro\n\n### **日本語**\n\n## Post title\n\n```md\n## Not a heading\n```',
+		})
+		await renderPath('/blog/tulisan-pertama')
+		const trigger = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Table of contents"]'
+		)
+		if (!trigger) throw new Error('Missing TOC')
+		await actAndFlush(() => trigger.click())
+		const links = [
+			...document.querySelectorAll<HTMLAnchorElement>(
+				'nav[aria-label="On this page"] a'
+			),
+		]
+		expect(links.map((link) => link.getAttribute('href'))).toEqual([
+			'#intro',
+			'#intro-1',
+			'#日本語',
+			'#post-title-1',
+		])
+		for (const link of links) {
+			const id = link.getAttribute('href')?.slice(1)
+			expect(id && document.getElementById(id)?.textContent).toBe(
+				link.textContent
+			)
+		}
+	})
+
+	it('omits the TOC and its layout slot for an article without headings', async () => {
+		vi.mocked(getPostBySlug).mockResolvedValue({
+			...blogPost,
+			body: 'A plain article.',
+		})
+		await renderPath('/blog/tulisan-pertama')
+		expect(
+			container.querySelector('button[aria-label="Table of contents"]')
+		).toBeNull()
+		expect(
+			container
+				.querySelector('[data-slot="post-cover"]')
+				?.nextElementSibling?.getAttribute('aria-label')
+		).toBe('Article content')
 	})
 
 	it('keeps heading permalinks distinct from page and footnote IDs', async () => {
