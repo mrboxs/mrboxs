@@ -13,6 +13,7 @@ import {
 	SocialLinks,
 } from '#/components/portfolio/personal-information'
 import { ProfileHeader } from '#/components/portfolio/profile-header'
+import { Projects } from '#/components/portfolio/projects'
 
 export const Route = createFileRoute('/')({ component: Home })
 
@@ -29,6 +30,8 @@ function Home() {
 				<About />
 				<SectionSeparator />
 				<GitHubContributions />
+				<SectionSeparator />
+				<Projects />
 				<SectionSeparator />
 				<Blog />
 				<SectionSeparator />
