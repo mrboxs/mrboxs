@@ -63,7 +63,15 @@ function TOCMinimapContent({
 	const activeHeading = useActiveHeading(itemIds)
 	const [open, setOpen] = useState(false)
 	const navigating = useRef(false)
+	const pointerInside = useRef(false)
+	const pendingFocus = useRef<HTMLElement | null>(null)
+	const outline = useRef<HTMLElement | null>(null)
 	const [play] = useSound(uMiniMapOpenSound, { volume: 0.3 })
+	const barHeight = `min(${Math.max(items.length * 14 - 12, 2)}px, 50dvh)`
+	const attachOutline = useCallback((element: HTMLElement | null) => {
+		outline.current = element
+		alignActiveItem(element)
+	}, [])
 
 	function navigate(event: MouseEvent<HTMLAnchorElement>, id: string) {
 		if (
@@ -79,8 +87,13 @@ function TOCMinimapContent({
 		const target = document.getElementById(id)
 		if (!target) return
 		event.preventDefault()
-		navigating.current = true
-		setOpen(false)
+		const keepOpen = pointerInside.current && event.detail > 0
+		navigating.current = !keepOpen
+		pendingFocus.current = keepOpen ? target : null
+		if (!keepOpen) {
+			pointerInside.current = false
+			setOpen(false)
+		}
 		void router.navigate({
 			hash: id,
 			search: true,
@@ -93,18 +106,39 @@ function TOCMinimapContent({
 				? 'instant'
 				: 'smooth',
 		})
-		target.focus({ preventScroll: true })
+		if (!keepOpen) target.focus({ preventScroll: true })
 	}
 
 	return (
-		<div className={cn('w-fit lg:w-18', className)}>
+		<div
+			data-slot="toc-minimap"
+			className={cn('w-fit lg:w-14', className)}
+			style={{
+				top: `max(0px, calc((100dvh - max(2.75rem, calc(${barHeight} + 1.5rem))) / 2))`,
+			}}
+		>
 			<Popover
 				open={open}
-				onOpenChange={(nextOpen) => {
+				onOpenChange={(nextOpen, details) => {
+					if (
+						!nextOpen &&
+						pointerInside.current &&
+						(details.reason === 'focus-out' ||
+							details.reason === 'trigger-hover')
+					) {
+						details.cancel()
+						return
+					}
 					setOpen(nextOpen)
-					if (nextOpen) {
+					if (nextOpen && !open) {
 						navigating.current = false
+						pendingFocus.current = null
+						// Reopening can reuse the popup before its exit animation finishes.
+						alignActiveItem(outline.current)
 						play()
+					} else if (!nextOpen) {
+						pointerInside.current = false
+						pendingFocus.current = null
 					}
 				}}
 			>
@@ -113,17 +147,14 @@ function TOCMinimapContent({
 					delay={0}
 					closeDelay={100}
 					aria-label="Table of contents"
-					className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm px-3 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none lg:py-3 lg:pl-6"
+					className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm px-3 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none lg:py-3 lg:pr-0 lg:pl-6"
 				>
 					<IconList aria-hidden="true" className="size-4 lg:hidden" />
 					<span className="lg:sr-only">On this page</span>
 					<span
 						aria-hidden="true"
 						className="hidden w-8 flex-col justify-between lg:flex"
-						style={{
-							height:
-								'min(' + Math.max(items.length * 14 - 12, 2) + 'px, 50dvh)',
-						}}
+						style={{ height: barHeight }}
 					>
 						{items.map((item) => (
 							<div
@@ -143,6 +174,27 @@ function TOCMinimapContent({
 				<PopoverContent
 					className="w-56 max-w-[calc(100dvw-2rem)] overflow-hidden p-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
 					finalFocus={() => !navigating.current}
+					initialFocus={(interaction) =>
+						interaction === 'keyboard'
+							? (outline.current?.querySelector<HTMLAnchorElement>(
+									'a[aria-current="location"]'
+								) ?? true)
+							: interaction === 'touch'
+					}
+					onPointerEnter={(event) => {
+						if (event.pointerType !== 'touch') pointerInside.current = true
+					}}
+					onPointerLeave={(event) => {
+						if (event.pointerType === 'touch') return
+						pointerInside.current = false
+						const target = pendingFocus.current
+						pendingFocus.current = null
+						if (target?.isConnected) {
+							navigating.current = true
+							target.focus({ preventScroll: true })
+						}
+						setOpen(false)
+					}}
 					align="start"
 					alignOffset={0}
 					side="left"
@@ -150,8 +202,9 @@ function TOCMinimapContent({
 				>
 					<PopoverTitle className="sr-only">On this page</PopoverTitle>
 					<nav
+						ref={attachOutline}
 						aria-label="On this page"
-						className="max-h-[50dvh] overflow-y-auto overscroll-contain"
+						className="relative max-h-[50dvh] overflow-y-auto overscroll-contain"
 					>
 						<ul className="flex flex-col px-4 py-2 text-sm">
 							{items.map((item) => (
@@ -180,6 +233,13 @@ function TOCMinimapContent({
 			</Popover>
 		</div>
 	)
+}
+
+function alignActiveItem(outline: HTMLElement | null) {
+	const active = outline?.querySelector<HTMLElement>(
+		'a[aria-current="location"]'
+	)
+	if (outline && active) outline.scrollTop = active.offsetTop
 }
 
 export function useActiveHeading(itemIds: Array<string>) {

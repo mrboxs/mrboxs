@@ -107,7 +107,7 @@ function BlogDetailPage() {
 						>
 							{post.title}
 						</h1>
-						<div className="px-4 pt-8 pb-5">
+						<div data-slot="post-reading" className="relative px-4 pt-8 pb-5">
 							<p className="mb-5 text-base/7 wrap-anywhere text-muted-foreground">
 								{post.description}
 							</p>
@@ -125,8 +125,15 @@ function BlogDetailPage() {
 								/>
 							</div>
 							{tocItems.length > 0 && (
-								<div className="mb-4 flex justify-end lg:fixed lg:top-1/2 lg:left-[calc(50%+24rem)] lg:mb-0 lg:-translate-y-1/2">
-									<TOCMinimap key={post.slug} items={tocItems} />
+								<div
+									data-slot="toc-rail"
+									className="mb-4 flex justify-end lg:pointer-events-none lg:absolute lg:inset-x-[calc((100%-100vw)/2)] lg:top-8 lg:bottom-5 lg:mb-0 lg:items-start lg:pr-2"
+								>
+									<TOCMinimap
+										key={post.slug}
+										items={tocItems}
+										className="pointer-events-auto self-start lg:sticky"
+									/>
 								</div>
 							)}
 							<MarkdownRenderer

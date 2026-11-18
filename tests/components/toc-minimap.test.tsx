@@ -254,6 +254,95 @@ describe('TOC minimap', () => {
 		}
 	)
 
+	it.each(['pointer leave', 'Escape'])(
+		'keeps mouse navigation open until %s',
+		async (dismissal) => {
+			await render()
+			await open()
+			const popup = document.querySelector('[data-slot="popover-content"]')
+			const target = document.getElementById('second')
+			if (!popup || !target) throw new Error('Missing popup or heading')
+			vi.spyOn(target, 'scrollIntoView').mockImplementation(() => undefined)
+			await frame(() =>
+				popup.dispatchEvent(
+					new PointerEvent('pointerover', {
+						bubbles: true,
+						pointerType: 'mouse',
+					})
+				)
+			)
+			const selected = link('#second')
+			await act(async () => {
+				selected.focus()
+				selected.dispatchEvent(
+					new MouseEvent('click', {
+						bubbles: true,
+						cancelable: true,
+						detail: 1,
+					})
+				)
+				await router.load()
+			})
+			await frame(() => undefined)
+			expect(router.state.location.hash).toBe('second')
+			expect(trigger().getAttribute('aria-expanded')).toBe('true')
+			expect(document.activeElement).toBe(selected)
+			if (dismissal === 'Escape') {
+				await frame(() =>
+					selected.dispatchEvent(
+						new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+					)
+				)
+			}
+			await frame(() =>
+				popup.dispatchEvent(
+					new PointerEvent('pointerout', {
+						bubbles: true,
+						pointerType: 'mouse',
+						relatedTarget: document.body,
+					})
+				)
+			)
+			expect(trigger().getAttribute('aria-expanded')).toBe('false')
+			expect(document.activeElement).toBe(
+				dismissal === 'Escape' ? trigger() : target
+			)
+		}
+	)
+
+	it('aligns each newly opened outline to the active item without snapping while open', async () => {
+		vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(
+			function (this: HTMLElement) {
+				return this.getAttribute('href') === '#second'
+					? 660
+					: this.getAttribute('href') === '#caf%C3%A9'
+						? 1100
+						: 0
+			}
+		)
+		positions.first = -300
+		positions.second = 80
+		await render()
+		await open()
+		const outline = document.querySelector('nav[aria-label="On this page"]')
+		if (!outline) throw new Error('Missing outline')
+		expect(outline.scrollTop).toBe(660)
+		outline.scrollTop = 120
+		positions.second = 200
+		await frame(() => window.dispatchEvent(new Event('scroll')))
+		expect(link('#first').getAttribute('aria-current')).toBe('location')
+		expect(outline.scrollTop).toBe(120)
+		await frame(() => trigger().click())
+		positions.second = -200
+		positions.café = 80
+		await frame(() => window.dispatchEvent(new Event('scroll')))
+		await open()
+		expect(link('#caf%C3%A9').getAttribute('aria-current')).toBe('location')
+		expect(
+			document.querySelector('nav[aria-label="On this page"]')?.scrollTop
+		).toBe(1100)
+	})
+
 	it.each([
 		{ ctrlKey: true },
 		{ metaKey: true },
