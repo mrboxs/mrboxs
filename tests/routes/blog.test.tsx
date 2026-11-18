@@ -101,6 +101,23 @@ async function renderPath(path: string) {
 	})
 }
 
+function searchInput() {
+	const input = container.querySelector<HTMLInputElement>('#blog-search')
+	if (!input) throw new Error('Missing blog search')
+	return input
+}
+
+async function searchFor(query: string) {
+	await actAndFlush(() => {
+		const input = searchInput()
+		Object.getOwnPropertyDescriptor(
+			HTMLInputElement.prototype,
+			'value'
+		)?.set?.call(input, query)
+		input.dispatchEvent(new Event('input', { bubbles: true }))
+	})
+}
+
 async function advancePolling(milliseconds: number) {
 	await act(async () => {
 		await vi.advanceTimersByTimeAsync(milliseconds)
@@ -648,7 +665,17 @@ describe('blog routes', () => {
 	it('renders list data through the oRPC Query cache and follows the detail link', async () => {
 		await renderPath('/blog')
 		expect(container.textContent).toContain(blogMetadata.title)
-		expect(container.textContent).toContain(blogMetadata.author.name)
+		const cover = container.querySelector('#blog-post-list img')
+		expect(cover?.getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(cover?.getAttribute('alt')).toBe(blogMetadata.cover.alt)
+		expect(cover?.getAttribute('loading')).toBe('eager')
+		expect(cover?.getAttribute('fetchpriority')).toBe('high')
+		expect(container.querySelector('time')?.textContent).toBe('15 Nov 2026')
+		expect(container.querySelector('time')?.getAttribute('datetime')).toBe(
+			blogMetadata.publishedAt
+		)
 		expect(container.textContent).toContain('1 tulisan')
 		expect(listPosts).toHaveBeenCalledTimes(1)
 		const link = container.querySelector<HTMLAnchorElement>(
@@ -664,6 +691,112 @@ describe('blog routes', () => {
 			'Teks tebal'
 		)
 		expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith(blogMetadata.slug)
+	})
+
+	it('searches titles, descriptions, and tags without changing publication order or fetching article bodies', async () => {
+		vi.mocked(listPosts).mockResolvedValue([
+			{
+				...blogMetadata,
+				title: 'React compiler notes',
+				slug: 'compiler',
+				description: 'Memoization experiments.',
+				tags: ['javascript'],
+			},
+			{
+				...blogMetadata,
+				title: 'Old hardware journal',
+				slug: 'hardware',
+				description: 'Learning React with limited hardware.',
+				tags: ['computing'],
+			},
+			{
+				...blogMetadata,
+				title: 'Music production',
+				slug: 'music',
+				description: 'Mixing a remix.',
+				tags: ['creative'],
+			},
+		])
+		await renderPath('/blog')
+		const titles = () =>
+			[...container.querySelectorAll('#blog-post-list h2')].map(
+				(h) => h.textContent
+			)
+		await searchFor('  COMPILER   react  ')
+		expect(titles()).toEqual(['React compiler notes'])
+		await searchFor('react')
+		expect(titles()).toEqual(['React compiler notes', 'Old hardware journal'])
+		await searchFor('CREATIVE')
+		expect(titles()).toEqual(['Music production'])
+		expect(listPosts).toHaveBeenCalledTimes(1)
+		expect(getPostBySlug).not.toHaveBeenCalled()
+	})
+
+	it('announces no matches and clears the search while keeping focus in the input', async () => {
+		await renderPath('/blog')
+		await searchFor('not-a-matching-post')
+		expect(container.textContent).toContain('No posts found.')
+		expect(container.querySelector('output')?.textContent).toBe(
+			'0 tulisan ditemukan.'
+		)
+		expect(container.querySelector('#blog-post-list h2')).toBeNull()
+		const clear = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Clear search"]'
+		)
+		if (!clear) throw new Error('Missing clear button')
+		await actAndFlush(() => clear.click())
+		expect(searchInput().value).toBe('')
+		expect(document.activeElement).toBe(searchInput())
+		expect(container.querySelector('#blog-post-list h2')?.textContent).toBe(
+			blogMetadata.title
+		)
+		expect(container.querySelector('output')?.textContent).toBe('1 tulisan')
+		expect(
+			container.querySelector('button[aria-label="Clear search"]')
+		).toBeNull()
+	})
+
+	it('clears on Escape in the search field without interrupting an IME composition', async () => {
+		await renderPath('/blog')
+		await searchFor('missing')
+		await actAndFlush(() => {
+			searchInput().focus()
+			searchInput().dispatchEvent(
+				new KeyboardEvent('keydown', {
+					key: 'Escape',
+					bubbles: true,
+					isComposing: true,
+				})
+			)
+		})
+		expect(searchInput().value).toBe('missing')
+		await actAndFlush(() =>
+			searchInput().dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+			)
+		)
+		expect(searchInput().value).toBe('')
+		expect(document.activeElement).toBe(searchInput())
+		expect(container.querySelectorAll('#blog-post-list h2')).toHaveLength(1)
+	})
+
+	it('keeps filtering fresh cache data with the current search query', async () => {
+		await renderPath('/blog')
+		await searchFor('later')
+		expect(container.querySelector('#blog-post-list h2')).toBeNull()
+		const { queryClient, orpc } = router.options.context
+		await act(async () => {
+			queryClient.setQueryData(orpc.blog.list.queryKey({ input: {} }), [
+				{ ...blogMetadata, slug: 'later-post', title: 'Published later' },
+				blogMetadata,
+			])
+			await new Promise((resolve) => setTimeout(resolve, 0))
+		})
+		expect(searchInput().value).toBe('later')
+		expect(container.querySelectorAll('#blog-post-list h2')).toHaveLength(1)
+		expect(container.querySelector('#blog-post-list h2')?.textContent).toBe(
+			'Published later'
+		)
 	})
 
 	it('renders Markdown and local assets while discarding raw HTML', async () => {
