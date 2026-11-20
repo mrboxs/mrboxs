@@ -272,7 +272,7 @@ describe('blog routes', () => {
 		if (!image) throw new Error('Missing article image')
 		await actAndFlush(() => image.click())
 		const close = document.querySelector<HTMLButtonElement>(
-			'[role="dialog"] [data-slot="dialog-close"]'
+			'[role="dialog"] [data-slot="lightbox-close"]'
 		)
 		if (!close) throw new Error('Missing image dialog')
 		await actAndFlush(() => close.focus())
@@ -846,7 +846,16 @@ describe('blog routes', () => {
 		expect(image?.getAttribute('fetchpriority')).toBe('high')
 		expect(image?.width).toBe(1200)
 		expect(image?.height).toBe(675)
-		expect(cover.querySelector('button')).toBeNull()
+		const trigger = cover.querySelector<HTMLButtonElement>(
+			'[data-slot="lightbox-trigger"]'
+		)
+		if (!trigger) throw new Error('Missing cover lightbox trigger')
+		await actAndFlush(() => trigger.click())
+		expect(
+			document
+				.querySelector('[data-slot="lightbox-content"] img')
+				?.getAttribute('src')
+		).toBe('/api/blog/assets/tulisan-pertama/cover.png')
 		expect(
 			container
 				.querySelector('section[aria-label="Article content"] img')

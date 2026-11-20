@@ -1,17 +1,25 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 
 import { cn } from 'cn'
 
-import { markdownAssetUrl } from '#/components/markdown-renderer/asset'
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '#/components/ui/dialog'
+	Lightbox,
+	LightboxCaption,
+	LightboxClose,
+	LightboxContent,
+	LightboxFooter,
+	LightboxHeader,
+	LightboxItem,
+	LightboxMedia,
+	LightboxSlide,
+	LightboxSlides,
+	LightboxTrigger,
+	LightboxZoom,
+	LightboxZoomIn,
+	LightboxZoomOut,
+} from '#/components/custom/lightbox'
+import { markdownAssetUrl } from '#/components/markdown-renderer/asset'
 import type { BlogPost } from '#/lib/blog'
 
 function imageSource(src: string | undefined, assets: BlogPost['assets']) {
@@ -58,7 +66,7 @@ export function ContentImage({
 			</span>
 		)
 	}
-	const image = (
+	const image = (imageRef?: (node: HTMLImageElement | null) => void) => (
 		<img
 			src={src}
 			alt={alt}
@@ -70,6 +78,7 @@ export function ContentImage({
 			decoding="async"
 			className={cn('mx-auto h-auto max-w-full object-contain', className)}
 			ref={(element) => {
+				imageRef?.(element)
 				if (element?.complete) {
 					void element.decode().catch(() => setFailedSource(src))
 				}
@@ -78,11 +87,18 @@ export function ContentImage({
 		/>
 	)
 	return preview ? (
-		<ImagePreview key={src} src={src} alt={alt} title={title}>
+		<ImagePreview
+			key={src}
+			src={src}
+			alt={alt}
+			title={title}
+			width={width}
+			height={height}
+		>
 			{image}
 		</ImagePreview>
 	) : (
-		image
+		image()
 	)
 }
 
@@ -90,49 +106,103 @@ function ImagePreview({
 	src,
 	alt,
 	title,
+	width,
+	height,
 	children,
 }: {
 	src: string
 	alt: string
 	title?: string
-	children: ReactNode
-}) {
+	children: (imageRef: (node: HTMLImageElement | null) => void) => ReactNode
+} & Pick<ComponentPropsWithoutRef<'img'>, 'width' | 'height'>) {
 	const [failed, setFailed] = useState(false)
+	const [dimensions, setDimensions] = useState<{
+		width: number
+		height: number
+	}>()
+	const thumbnailRef = useRef<HTMLImageElement | null>(null)
 	const label = title?.trim() ? title : alt.trim() ? alt : 'Article image'
 	return (
-		<Dialog
+		<Lightbox
 			onOpenChange={(open) => {
-				if (open) setFailed(false)
+				if (open) {
+					setFailed(false)
+					const thumbnail = thumbnailRef.current
+					if (thumbnail?.naturalWidth && thumbnail.naturalHeight) {
+						setDimensions({
+							width: thumbnail.naturalWidth,
+							height: thumbnail.naturalHeight,
+						})
+					}
+				}
 			}}
 		>
-			<DialogTrigger
+			<LightboxTrigger
+				index={0}
 				type="button"
 				aria-label={`Enlarge image: ${label}`}
 				className="not-prose mx-auto block w-fit max-w-full cursor-zoom-in rounded-sm align-middle transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
 			>
-				{children}
-			</DialogTrigger>
-			<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-5xl">
-				<DialogHeader className="pr-8">
-					<DialogTitle>{label}</DialogTitle>
-					<DialogDescription className="sr-only">
-						Full-size image preview.
-					</DialogDescription>
-				</DialogHeader>
-				{failed ? (
-					<output>
-						{alt ? `Image unavailable: ${alt}` : 'Image unavailable'}
-					</output>
-				) : (
-					<img
-						src={src}
-						alt={alt}
-						decoding="async"
-						className="mx-auto h-auto max-h-[calc(100dvh-10rem)] max-w-full object-contain"
-						onError={() => setFailed(true)}
-					/>
-				)}
-			</DialogContent>
-		</Dialog>
+				{({ imageRef }) =>
+					children((element) => {
+						imageRef(element)
+						thumbnailRef.current = element
+					})
+				}
+			</LightboxTrigger>
+			<LightboxContent aria-label={label} className="not-prose">
+				<LightboxSlides>
+					<LightboxSlide>
+						<LightboxItem index={0} caption={label}>
+							{failed ? (
+								<div className="flex h-full items-center justify-center px-4 text-center">
+									<output>
+										{alt ? `Image unavailable: ${alt}` : 'Image unavailable'}
+									</output>
+								</div>
+							) : (
+								<LightboxZoom maxZoom={4} scrollToZoom>
+									<LightboxMedia
+										width={dimensions?.width ?? (Number(width) || undefined)}
+										height={dimensions?.height ?? (Number(height) || undefined)}
+									>
+										<img
+											src={src}
+											alt={alt}
+											title={title}
+											width={dimensions?.width ?? width}
+											height={dimensions?.height ?? height}
+											decoding="async"
+											draggable={false}
+											className="object-contain"
+											onLoad={({ currentTarget }) => {
+												if (
+													currentTarget.naturalWidth &&
+													currentTarget.naturalHeight
+												) {
+													setDimensions({
+														width: currentTarget.naturalWidth,
+														height: currentTarget.naturalHeight,
+													})
+												}
+											}}
+											onError={() => setFailed(true)}
+										/>
+									</LightboxMedia>
+								</LightboxZoom>
+							)}
+						</LightboxItem>
+					</LightboxSlide>
+				</LightboxSlides>
+				<LightboxHeader className="*:size-11 md:*:size-8">
+					<LightboxZoomOut />
+					<LightboxZoomIn />
+					<LightboxClose />
+				</LightboxHeader>
+				<LightboxFooter>
+					<LightboxCaption />
+				</LightboxFooter>
+			</LightboxContent>
+		</Lightbox>
 	)
 }

@@ -116,7 +116,6 @@ function BlogDetailPage() {
 									src={getPostAssetUrl(post.cover.src)}
 									alt={post.cover.alt}
 									assets={post.assets}
-									preview={false}
 									loading="eager"
 									fetchPriority="high"
 									width={1200}

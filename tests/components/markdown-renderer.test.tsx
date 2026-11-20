@@ -294,7 +294,7 @@ describe('blog Markdown renderer', () => {
 		expect(find('pre code').textContent).toBe('> [!NOTE]')
 	})
 
-	it('opens an image dialog, labels it, and restores focus after Escape', async () => {
+	it('opens a single-image lightbox, labels it, and restores focus after Escape', async () => {
 		await render('![Cover](./cover.png "Cover title")')
 		const trigger = find<HTMLButtonElement>(
 			'button[aria-label="Enlarge image: Cover title"]'
@@ -306,10 +306,18 @@ describe('blog Markdown renderer', () => {
 		})
 		const dialog = document.querySelector('[role="dialog"]')
 		if (!dialog) throw new Error('Missing image dialog')
-		const titleId = dialog.getAttribute('aria-labelledby')
-		expect(titleId && document.getElementById(titleId)?.textContent).toBe(
-			'Cover title'
+		expect(dialog.getAttribute('aria-label')).toBe('Cover title')
+		expect(dialog.querySelectorAll('[data-slot="lightbox-item"]')).toHaveLength(
+			1
 		)
+		expect(
+			dialog.querySelector('[data-slot="lightbox-caption"]')?.textContent
+		).toBe('Cover title')
+		expect(
+			dialog.querySelector(
+				'[data-slot="lightbox-previous"], [data-slot="lightbox-next"], [data-slot="lightbox-counter"]'
+			)
+		).toBeNull()
 		expect(dialog.querySelector('img')?.getAttribute('src')).toBe(
 			'/api/blog/assets/tulisan-pertama/cover.png'
 		)
@@ -327,7 +335,53 @@ describe('blog Markdown renderer', () => {
 		expect(document.activeElement).toBe(trigger)
 	})
 
-	it('keeps the dialog closable on image failure and retries on reopening', async () => {
+	it('zooms with the mouse wheel without holding Control and keeps zoom controls usable', async () => {
+		await render('![Cover](./cover.png)')
+		await actAndFlush(() =>
+			find<HTMLButtonElement>('[data-slot="lightbox-trigger"]').click()
+		)
+		await act(async () => {
+			await vi.dynamicImportSettled()
+		})
+		const zoom = document.querySelector('[data-slot="lightbox-zoom"]')
+		const zoomOut = document.querySelector<HTMLButtonElement>(
+			'[data-slot="lightbox-zoom-out"]'
+		)
+		const zoomIn = document.querySelector<HTMLButtonElement>(
+			'[data-slot="lightbox-zoom-in"]'
+		)
+		if (!zoom || !zoomOut || !zoomIn) throw new Error('Missing zoom controls')
+		expect(zoomOut.disabled).toBe(true)
+		const wheel = new WheelEvent('wheel', {
+			deltaY: -100,
+			bubbles: true,
+			cancelable: true,
+		})
+		await actAndFlush(() => zoom.dispatchEvent(wheel))
+		expect(wheel.defaultPrevented).toBe(true)
+		expect(zoom.hasAttribute('data-zoom')).toBe(true)
+		expect(zoomOut.disabled).toBe(false)
+		await actAndFlush(() => zoomOut.click())
+		await act(async () => {
+			await Promise.all(
+				[zoom, ...zoom.querySelectorAll('*')].flatMap((element) =>
+					element.getAnimations().map((animation) => animation.finished)
+				)
+			)
+		})
+		await vi.waitFor(() => expect(zoom.hasAttribute('data-zoom')).toBe(false))
+		await actAndFlush(() => zoomIn.click())
+		await act(async () => {
+			await Promise.all(
+				[zoom, ...zoom.querySelectorAll('*')].flatMap((element) =>
+					element.getAnimations().map((animation) => animation.finished)
+				)
+			)
+		})
+		await vi.waitFor(() => expect(zoom.hasAttribute('data-zoom')).toBe(true))
+	})
+
+	it('keeps the lightbox closable on image failure and retries on reopening', async () => {
 		await render('![Cover](./cover.png)')
 		const trigger = find<HTMLButtonElement>(
 			'button[aria-label="Enlarge image: Cover"]'
@@ -342,7 +396,7 @@ describe('blog Markdown renderer', () => {
 			'Image unavailable: Cover'
 		)
 		const close = dialog.querySelector<HTMLButtonElement>(
-			'[data-slot="dialog-close"]'
+			'[data-slot="lightbox-close"]'
 		)
 		if (!close) throw new Error('Missing close button')
 		await actAndFlush(() => close.click())
@@ -358,7 +412,7 @@ describe('blog Markdown renderer', () => {
 		)
 		expect(container.querySelector('a button, button button')).toBeNull()
 		expect(
-			container.querySelectorAll('[data-slot="dialog-trigger"]')
+			container.querySelectorAll('[data-slot="lightbox-trigger"]')
 		).toHaveLength(1)
 		expect(
 			find('button[aria-label="Enlarge image: Standalone"] img').getAttribute(
@@ -378,25 +432,27 @@ describe('blog Markdown renderer', () => {
 			'/api/blog/assets/tulisan-pertama/cover.png'
 		)
 		expect(
-			container.querySelector('a button, [data-slot="dialog-trigger"]')
+			container.querySelector('a button, [data-slot="lightbox-trigger"]')
 		).toBeNull()
 	})
 
-	it('provides a nonempty dialog name even when the image title and alt are blank', async () => {
+	it('provides a nonempty lightbox name even when the image title and alt are blank', async () => {
 		await render('![](./cover.png "")')
 		const trigger = find<HTMLButtonElement>(
 			'button[aria-label="Enlarge image: Article image"]'
 		)
 		await actAndFlush(() => trigger.click())
 		expect(
-			document.querySelector('[data-slot="dialog-title"]')?.textContent
+			document
+				.querySelector('[data-slot="lightbox-content"]')
+				?.getAttribute('aria-label')
 		).toBe('Article image')
 	})
 
 	it('dismisses an open preview when the article image changes', async () => {
 		await render('![First](https://images.example.test/first.png)')
 		await actAndFlush(() =>
-			find<HTMLButtonElement>('[data-slot="dialog-trigger"]').click()
+			find<HTMLButtonElement>('[data-slot="lightbox-trigger"]').click()
 		)
 		expect(document.querySelector('[role="dialog"]')).not.toBeNull()
 		await render('![Second](https://images.example.test/second.png)')
@@ -621,7 +677,7 @@ describe('blog Markdown renderer', () => {
 		expect(html).toContain('/api/blog/assets/tulisan-pertama/cover.png')
 		expect(html).toContain('data-slot="alert"')
 		expect(html).toContain('data-slot="table"')
-		expect(html).toContain('data-slot="dialog-trigger"')
+		expect(html).toContain('data-slot="lightbox-trigger"')
 		container.innerHTML = html
 		const recoverable = vi.fn()
 		await act(async () => {
