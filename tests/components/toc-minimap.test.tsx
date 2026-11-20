@@ -310,6 +310,66 @@ describe('TOC minimap', () => {
 		}
 	)
 
+	it('preserves keyboard focus outside the popup when the pointer leaves after navigation', async () => {
+		await render()
+		await open()
+		const popup = document.querySelector('[data-slot="popover-content"]')
+		if (!popup) throw new Error('Missing popup')
+		const outside = document.createElement('button')
+		outside.type = 'button'
+		outside.textContent = 'Outside control'
+		document.body.appendChild(outside)
+		try {
+			await frame(() =>
+				popup.dispatchEvent(
+					new PointerEvent('pointerover', {
+						bubbles: true,
+						pointerType: 'mouse',
+					})
+				)
+			)
+			const selected = link('#second')
+			await act(async () => {
+				selected.focus()
+				selected.dispatchEvent(
+					new MouseEvent('click', {
+						bubbles: true,
+						cancelable: true,
+						detail: 1,
+					})
+				)
+				await router.load()
+			})
+			expect(router.state.location.hash).toBe('second')
+			expect(document.activeElement).toBe(selected)
+			await frame(() => {
+				selected.dispatchEvent(
+					new KeyboardEvent('keydown', {
+						key: 'Tab',
+						code: 'Tab',
+						bubbles: true,
+					})
+				)
+				outside.focus()
+			})
+			expect(trigger().getAttribute('aria-expanded')).toBe('true')
+			expect(document.activeElement).toBe(outside)
+			await frame(() =>
+				popup.dispatchEvent(
+					new PointerEvent('pointerout', {
+						bubbles: true,
+						pointerType: 'mouse',
+						relatedTarget: document.body,
+					})
+				)
+			)
+			expect(trigger().getAttribute('aria-expanded')).toBe('false')
+			expect(document.activeElement).toBe(outside)
+		} finally {
+			outside.remove()
+		}
+	})
+
 	it('aligns each newly opened outline to the active item without snapping while open', async () => {
 		vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockImplementation(
 			function (this: HTMLElement) {

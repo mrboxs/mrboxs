@@ -62,7 +62,6 @@ function TOCMinimapContent({
 	const itemIds = useMemo(() => items.map((item) => item.id), [items])
 	const activeHeading = useActiveHeading(itemIds)
 	const [open, setOpen] = useState(false)
-	const navigating = useRef(false)
 	const pointerInside = useRef(false)
 	const pendingFocus = useRef<HTMLElement | null>(null)
 	const outline = useRef<HTMLElement | null>(null)
@@ -88,7 +87,6 @@ function TOCMinimapContent({
 		if (!target) return
 		event.preventDefault()
 		const keepOpen = pointerInside.current && event.detail > 0
-		navigating.current = !keepOpen
 		pendingFocus.current = keepOpen ? target : null
 		if (!keepOpen) {
 			pointerInside.current = false
@@ -131,7 +129,6 @@ function TOCMinimapContent({
 					}
 					setOpen(nextOpen)
 					if (nextOpen && !open) {
-						navigating.current = false
 						pendingFocus.current = null
 						// Reopening can reuse the popup before its exit animation finishes.
 						alignActiveItem(outline.current)
@@ -173,7 +170,6 @@ function TOCMinimapContent({
 				</PopoverTrigger>
 				<PopoverContent
 					className="w-56 max-w-[calc(100dvw-2rem)] overflow-hidden p-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
-					finalFocus={() => !navigating.current}
 					initialFocus={(interaction) =>
 						interaction === 'keyboard'
 							? (outline.current?.querySelector<HTMLAnchorElement>(
@@ -181,6 +177,11 @@ function TOCMinimapContent({
 								) ?? true)
 							: interaction === 'touch'
 					}
+					onBlur={(event) => {
+						if (!event.currentTarget.contains(event.relatedTarget)) {
+							pendingFocus.current = null
+						}
+					}}
 					onPointerEnter={(event) => {
 						if (event.pointerType !== 'touch') pointerInside.current = true
 					}}
@@ -190,7 +191,6 @@ function TOCMinimapContent({
 						const target = pendingFocus.current
 						pendingFocus.current = null
 						if (target?.isConnected) {
-							navigating.current = true
 							target.focus({ preventScroll: true })
 						}
 						setOpen(false)
