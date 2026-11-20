@@ -179,6 +179,77 @@ async function pressArrow(
 }
 
 describe('blog routes', () => {
+	it('lists posts in the reading sidebar, keeps its state across navigation, and receives live list updates', async () => {
+		mockNavigationPosts()
+		await renderNavigablePost()
+		const sidebar = () =>
+			container.querySelector('aside[aria-label="Blog posts sidebar"]')
+		const toggle = () =>
+			sidebar()?.querySelector<HTMLButtonElement>(
+				'button[aria-label="Toggle Sidebar"]'
+			)
+		expect(
+			sidebar()?.querySelector('a[aria-current="page"]')?.textContent
+		).toBe(blogPost.title)
+		expect(sidebar()?.querySelectorAll('nav a')).toHaveLength(3)
+		await actAndFlush(() => toggle()?.click())
+		const next = container.querySelector<HTMLAnchorElement>(
+			'a[aria-label="Next post"]'
+		)
+		if (!next) throw new Error('Missing next post')
+		await act(async () => {
+			next.click()
+			await new Promise((resolve) => setTimeout(resolve, 0))
+			await router.load()
+		})
+		expect(router.state.location.pathname).toBe('/blog/older-post')
+		expect(toggle()?.getAttribute('aria-expanded')).toBe('false')
+		await actAndFlush(() => toggle()?.click())
+		expect(
+			sidebar()?.querySelector('a[aria-current="page"]')?.textContent
+		).toBe('Older post')
+		const { queryClient, orpc } = router.options.context
+		await act(async () => {
+			queryClient.setQueryData(orpc.blog.list.queryKey({ input: {} }), [
+				{ ...blogMetadata, slug: 'live-post', title: 'Live post' },
+				blogMetadata,
+			])
+			await new Promise((resolve) => setTimeout(resolve, 0))
+		})
+		expect(
+			sidebar()?.querySelector('a[href="/blog/live-post"]')?.textContent
+		).toBe('Live post')
+	})
+
+	it('updates the TOC offset for changing article header geometry without depending on page scroll', async () => {
+		const observers: Array<{ element: Element; notify: () => void }> = []
+		class HeaderObserver implements ResizeObserver {
+			constructor(readonly callback: ResizeObserverCallback) {}
+			observe(element: Element) {
+				observers.push({ element, notify: () => this.callback([], this) })
+			}
+			unobserve = vi.fn()
+			disconnect = vi.fn()
+		}
+		vi.stubGlobal('ResizeObserver', HeaderObserver)
+		await renderPath('/blog/tulisan-pertama')
+		const header = container.querySelector('article > header')
+		const main = container.querySelector<HTMLElement>('#main-content')
+		const observer = observers.find((entry) => entry.element === header)
+		if (!header || !main || !observer) {
+			throw new Error('Missing article geometry observer')
+		}
+		const geometry = vi
+			.spyOn(header, 'getBoundingClientRect')
+			.mockReturnValue(new DOMRect(255, 104, 766, 144))
+		await actAndFlush(observer.notify)
+		expect(main.style.getPropertyValue('--post-reading-top')).toBe('248px')
+		vi.spyOn(window, 'scrollY', 'get').mockReturnValue(600)
+		geometry.mockReturnValue(new DOMRect(255, -496, 766, 184))
+		await actAndFlush(observer.notify)
+		expect(main.style.getPropertyValue('--post-reading-top')).toBe('288px')
+	})
+
 	it('navigates with the displayed arrow shortcuts using the current neighbors', async () => {
 		mockNavigationPosts()
 		await renderNavigablePost()
