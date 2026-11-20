@@ -1,6 +1,8 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, notFound } from '@tanstack/react-router'
 
+import { useMemo } from 'react'
+
 import { ORPCError } from '@orpc/client'
 
 import {
@@ -9,9 +11,13 @@ import {
 	BlogPending,
 } from '#/components/blog/blog-feedback'
 import { BlogPostToolbar } from '#/components/blog/blog-post-toolbar'
+import { TOCMinimap } from '#/components/custom/toc-minimap'
 import { MarkdownRenderer } from '#/components/markdown-renderer'
+import { ContentImage } from '#/components/markdown-renderer/image'
+import { articleHeadings } from '#/constants/headings'
 import { useBlogNavigation } from '#/hooks/use-blog-navigation'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
+import { getPostAssetUrl } from '#/lib/blog'
 
 export const Route = createFileRoute('/blog/$slug')({
 	loader: async ({ context, params }) => {
@@ -65,6 +71,15 @@ function BlogDetailPage() {
 	const previous = postIndex > 0 ? posts?.[postIndex - 1] : undefined
 	const next = postIndex >= 0 ? posts?.[postIndex + 1] : undefined
 	useBlogNavigation(previous, next)
+	const tocItems = useMemo(
+		() =>
+			articleHeadings(post.body).map(({ id, title, depth }) => ({
+				title,
+				depth,
+				url: `#${id}`,
+			})),
+		[post.body]
+	)
 
 	return (
 		<main id="main-content" className="overflow-x-clip pt-14">
@@ -92,10 +107,34 @@ function BlogDetailPage() {
 						>
 							{post.title}
 						</h1>
-						<div className="px-4 pt-8 pb-5">
+						<div data-slot="post-reading" className="relative px-4 pt-8 pb-5">
 							<p className="mb-5 text-base/7 wrap-anywhere text-muted-foreground">
 								{post.description}
 							</p>
+							<div data-slot="post-cover" className="mb-6 aspect-video">
+								<ContentImage
+									src={getPostAssetUrl(post.cover.src)}
+									alt={post.cover.alt}
+									assets={post.assets}
+									loading="eager"
+									fetchPriority="high"
+									width={1200}
+									height={675}
+									className="aspect-video w-full rounded-xl"
+								/>
+							</div>
+							{tocItems.length > 0 && (
+								<div
+									data-slot="toc-rail"
+									className="mb-4 flex justify-end lg:pointer-events-none lg:absolute lg:inset-x-[calc((100%-100vw)/2)] lg:top-8 lg:bottom-5 lg:mb-0 lg:items-start lg:pr-2"
+								>
+									<TOCMinimap
+										key={post.slug}
+										items={tocItems}
+										className="pointer-events-auto self-start lg:sticky"
+									/>
+								</div>
+							)}
 							<MarkdownRenderer
 								slug={post.slug}
 								content={post.body}

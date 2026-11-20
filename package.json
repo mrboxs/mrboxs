@@ -23,6 +23,7 @@
 		"@orpc/server": "^2.0.0-beta.50",
 		"@orpc/tanstack-query": "^2.0.0-beta.50",
 		"@orpc/zod": "^2.0.0-beta.50",
+		"@ramka/react": "^0.0.2",
 		"@rexa-developer/tiks": "^0.3.0",
 		"@shikijs/core": "^4.6.0",
 		"@shikijs/engine-javascript": "^4.6.0",

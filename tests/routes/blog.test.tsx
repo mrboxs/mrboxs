@@ -23,6 +23,7 @@ import { blogMetadata, blogPost } from '../helpers/blog'
 import { actAndFlush } from '../helpers/react'
 
 vi.mock('void/env', () => ({ env: {} }))
+vi.mock('#/hooks/use-sound', () => ({ useSound: () => [vi.fn(), {}] }))
 vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
 	...(await importOriginal()),
 	listPosts: vi.fn(),
@@ -97,6 +98,23 @@ async function renderPath(path: string) {
 	await act(async () => {
 		await router.load()
 		root.render(<RouterProvider router={router} />)
+	})
+}
+
+function searchInput() {
+	const input = container.querySelector<HTMLInputElement>('#blog-search')
+	if (!input) throw new Error('Missing blog search')
+	return input
+}
+
+async function searchFor(query: string) {
+	await actAndFlush(() => {
+		const input = searchInput()
+		Object.getOwnPropertyDescriptor(
+			HTMLInputElement.prototype,
+			'value'
+		)?.set?.call(input, query)
+		input.dispatchEvent(new Event('input', { bubbles: true }))
 	})
 }
 
@@ -254,7 +272,7 @@ describe('blog routes', () => {
 		if (!image) throw new Error('Missing article image')
 		await actAndFlush(() => image.click())
 		const close = document.querySelector<HTMLButtonElement>(
-			'[role="dialog"] [data-slot="dialog-close"]'
+			'[role="dialog"] [data-slot="lightbox-close"]'
 		)
 		if (!close) throw new Error('Missing image dialog')
 		await actAndFlush(() => close.focus())
@@ -421,6 +439,14 @@ describe('blog routes', () => {
 			loaderData: { title: 'Updated after push' },
 		})
 		expect(getPostBySlug).toHaveBeenCalledTimes(2)
+		const toc = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Table of contents"]'
+		)
+		if (!toc) throw new Error('Missing updated TOC')
+		await actAndFlush(() => toc.click())
+		expect(
+			document.querySelector('nav[aria-label="On this page"]')?.textContent
+		).toContain('Updated body')
 	})
 
 	it('replaces a withdrawn article with the not-found boundary after a revision change', async () => {
@@ -639,7 +665,17 @@ describe('blog routes', () => {
 	it('renders list data through the oRPC Query cache and follows the detail link', async () => {
 		await renderPath('/blog')
 		expect(container.textContent).toContain(blogMetadata.title)
-		expect(container.textContent).toContain(blogMetadata.author.name)
+		const cover = container.querySelector('#blog-post-list img')
+		expect(cover?.getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(cover?.getAttribute('alt')).toBe(blogMetadata.cover.alt)
+		expect(cover?.getAttribute('loading')).toBe('eager')
+		expect(cover?.getAttribute('fetchpriority')).toBe('high')
+		expect(container.querySelector('time')?.textContent).toBe('15 Nov 2026')
+		expect(container.querySelector('time')?.getAttribute('datetime')).toBe(
+			blogMetadata.publishedAt
+		)
 		expect(container.textContent).toContain('1 tulisan')
 		expect(listPosts).toHaveBeenCalledTimes(1)
 		const link = container.querySelector<HTMLAnchorElement>(
@@ -655,6 +691,112 @@ describe('blog routes', () => {
 			'Teks tebal'
 		)
 		expect(getPostBySlug).toHaveBeenCalledExactlyOnceWith(blogMetadata.slug)
+	})
+
+	it('searches titles, descriptions, and tags without changing publication order or fetching article bodies', async () => {
+		vi.mocked(listPosts).mockResolvedValue([
+			{
+				...blogMetadata,
+				title: 'React compiler notes',
+				slug: 'compiler',
+				description: 'Memoization experiments.',
+				tags: ['javascript'],
+			},
+			{
+				...blogMetadata,
+				title: 'Old hardware journal',
+				slug: 'hardware',
+				description: 'Learning React with limited hardware.',
+				tags: ['computing'],
+			},
+			{
+				...blogMetadata,
+				title: 'Music production',
+				slug: 'music',
+				description: 'Mixing a remix.',
+				tags: ['creative'],
+			},
+		])
+		await renderPath('/blog')
+		const titles = () =>
+			[...container.querySelectorAll('#blog-post-list h2')].map(
+				(h) => h.textContent
+			)
+		await searchFor('  COMPILER   react  ')
+		expect(titles()).toEqual(['React compiler notes'])
+		await searchFor('react')
+		expect(titles()).toEqual(['React compiler notes', 'Old hardware journal'])
+		await searchFor('CREATIVE')
+		expect(titles()).toEqual(['Music production'])
+		expect(listPosts).toHaveBeenCalledTimes(1)
+		expect(getPostBySlug).not.toHaveBeenCalled()
+	})
+
+	it('announces no matches and clears the search while keeping focus in the input', async () => {
+		await renderPath('/blog')
+		await searchFor('not-a-matching-post')
+		expect(container.textContent).toContain('No posts found.')
+		expect(container.querySelector('output')?.textContent).toBe(
+			'0 tulisan ditemukan.'
+		)
+		expect(container.querySelector('#blog-post-list h2')).toBeNull()
+		const clear = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Clear search"]'
+		)
+		if (!clear) throw new Error('Missing clear button')
+		await actAndFlush(() => clear.click())
+		expect(searchInput().value).toBe('')
+		expect(document.activeElement).toBe(searchInput())
+		expect(container.querySelector('#blog-post-list h2')?.textContent).toBe(
+			blogMetadata.title
+		)
+		expect(container.querySelector('output')?.textContent).toBe('1 tulisan')
+		expect(
+			container.querySelector('button[aria-label="Clear search"]')
+		).toBeNull()
+	})
+
+	it('clears on Escape in the search field without interrupting an IME composition', async () => {
+		await renderPath('/blog')
+		await searchFor('missing')
+		await actAndFlush(() => {
+			searchInput().focus()
+			searchInput().dispatchEvent(
+				new KeyboardEvent('keydown', {
+					key: 'Escape',
+					bubbles: true,
+					isComposing: true,
+				})
+			)
+		})
+		expect(searchInput().value).toBe('missing')
+		await actAndFlush(() =>
+			searchInput().dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+			)
+		)
+		expect(searchInput().value).toBe('')
+		expect(document.activeElement).toBe(searchInput())
+		expect(container.querySelectorAll('#blog-post-list h2')).toHaveLength(1)
+	})
+
+	it('keeps filtering fresh cache data with the current search query', async () => {
+		await renderPath('/blog')
+		await searchFor('later')
+		expect(container.querySelector('#blog-post-list h2')).toBeNull()
+		const { queryClient, orpc } = router.options.context
+		await act(async () => {
+			queryClient.setQueryData(orpc.blog.list.queryKey({ input: {} }), [
+				{ ...blogMetadata, slug: 'later-post', title: 'Published later' },
+				blogMetadata,
+			])
+			await new Promise((resolve) => setTimeout(resolve, 0))
+		})
+		expect(searchInput().value).toBe('later')
+		expect(container.querySelectorAll('#blog-post-list h2')).toHaveLength(1)
+		expect(container.querySelector('#blog-post-list h2')?.textContent).toBe(
+			'Published later'
+		)
 	})
 
 	it('renders Markdown and local assets while discarding raw HTML', async () => {
@@ -680,6 +822,91 @@ describe('blog routes', () => {
 		expect(container.textContent).toContain(
 			'Belum ada tulisan yang dipublikasikan.'
 		)
+	})
+
+	it('places the published cover between the description and body and prioritizes it over body images', async () => {
+		await renderPath('/blog/tulisan-pertama')
+		const cover = container.querySelector('[data-slot="post-cover"]')
+		if (!cover) throw new Error('Missing post cover')
+		expect(cover.previousElementSibling?.textContent).toBe(blogPost.description)
+		expect(
+			cover.nextElementSibling?.querySelector(
+				'button[aria-label="Table of contents"]'
+			)
+		).not.toBeNull()
+		expect(
+			cover.nextElementSibling?.nextElementSibling?.getAttribute('aria-label')
+		).toBe('Article content')
+		const image = cover.querySelector('img')
+		expect(image?.getAttribute('src')).toBe(
+			'/api/blog/assets/tulisan-pertama/cover.png'
+		)
+		expect(image?.alt).toBe(blogPost.cover.alt)
+		expect(image?.getAttribute('loading')).toBe('eager')
+		expect(image?.getAttribute('fetchpriority')).toBe('high')
+		expect(image?.width).toBe(1200)
+		expect(image?.height).toBe(675)
+		const trigger = cover.querySelector<HTMLButtonElement>(
+			'[data-slot="lightbox-trigger"]'
+		)
+		if (!trigger) throw new Error('Missing cover lightbox trigger')
+		await actAndFlush(() => trigger.click())
+		expect(
+			document
+				.querySelector('[data-slot="lightbox-content"] img')
+				?.getAttribute('src')
+		).toBe('/api/blog/assets/tulisan-pertama/cover.png')
+		expect(
+			container
+				.querySelector('section[aria-label="Article content"] img')
+				?.getAttribute('loading')
+		).toBe('lazy')
+	})
+
+	it('builds the TOC from the same duplicate, formatted and non-ASCII headings as the renderer', async () => {
+		vi.mocked(getPostBySlug).mockResolvedValue({
+			...blogPost,
+			body: '# Intro\n\n## Intro\n\n### **日本語**\n\n## Post title\n\n```md\n## Not a heading\n```',
+		})
+		await renderPath('/blog/tulisan-pertama')
+		const trigger = container.querySelector<HTMLButtonElement>(
+			'button[aria-label="Table of contents"]'
+		)
+		if (!trigger) throw new Error('Missing TOC')
+		await actAndFlush(() => trigger.click())
+		const links = [
+			...document.querySelectorAll<HTMLAnchorElement>(
+				'nav[aria-label="On this page"] a'
+			),
+		]
+		expect(links.map((link) => link.getAttribute('href'))).toEqual([
+			'#intro',
+			'#intro-1',
+			'#日本語',
+			'#post-title-1',
+		])
+		for (const link of links) {
+			const id = link.getAttribute('href')?.slice(1)
+			expect(id && document.getElementById(id)?.textContent).toBe(
+				link.textContent
+			)
+		}
+	})
+
+	it('omits the TOC and its layout slot for an article without headings', async () => {
+		vi.mocked(getPostBySlug).mockResolvedValue({
+			...blogPost,
+			body: 'A plain article.',
+		})
+		await renderPath('/blog/tulisan-pertama')
+		expect(
+			container.querySelector('button[aria-label="Table of contents"]')
+		).toBeNull()
+		expect(
+			container
+				.querySelector('[data-slot="post-cover"]')
+				?.nextElementSibling?.getAttribute('aria-label')
+		).toBe('Article content')
 	})
 
 	it('keeps heading permalinks distinct from page and footnote IDs', async () => {
