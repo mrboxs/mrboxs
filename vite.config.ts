@@ -12,6 +12,8 @@ import { voidPlugin } from 'void'
 
 import process from 'node:process'
 
+import { vercelOgWorker } from './scripts/vercel-og'
+
 const chunkSizeBudget: Plugin = {
 	name: 'chunk-size-budget',
 	apply: 'build',
@@ -397,6 +399,7 @@ const config = defineConfig({
 
 		return [
 			devtools(),
+			vercelOgWorker(),
 			voidPlugin(),
 			tailwindcss(),
 			tanstackStart({

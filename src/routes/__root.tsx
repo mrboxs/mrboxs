@@ -9,12 +9,13 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
-import favicon from '#/assets/mrboxs-symbol.svg?url'
 import { SiteHeader } from '#/components/site-header'
+import { ThemeFavicon } from '#/components/theme-favicon'
 import { ThemeProvider } from '#/components/theme-provider'
 import { Toaster } from '#/components/ui/toast'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
+import { unavailableHead } from '#/lib/seo'
 import type { orpc } from '#/orpc/client'
 import appCss from '#/styles.css?url'
 
@@ -25,7 +26,9 @@ interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
 	head: () => ({
+		...unavailableHead(),
 		meta: [
+			...unavailableHead().meta,
 			{
 				charSet: 'utf-8',
 			},
@@ -33,15 +36,32 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 				name: 'viewport',
 				content: 'width=device-width, initial-scale=1',
 			},
-			{
-				title: 'MrBoxs | Portfolio',
-			},
+			{ name: 'theme-color', content: '#080808', id: 'theme-color' },
 		],
 		links: [
 			{
 				rel: 'icon',
+				type: 'image/x-icon',
+				href: '/favicon.ico',
+				sizes: '16x16 32x32 48x48',
+			},
+			{
+				id: 'theme-favicon',
+				rel: 'icon',
 				type: 'image/svg+xml',
-				href: favicon,
+				href: '/favicon.svg',
+			},
+			{
+				rel: 'apple-touch-icon',
+				href: '/apple-touch-icon.png',
+				sizes: '180x180',
+			},
+			{ rel: 'manifest', href: '/site.webmanifest' },
+			{
+				rel: 'alternate',
+				type: 'text/plain',
+				href: '/llms.txt',
+				title: 'Site information for language models',
 			},
 			{
 				rel: 'stylesheet',
@@ -95,6 +115,7 @@ function RootComponent() {
 			disableTransitionOnChange
 			storageKey="theme"
 		>
+			<ThemeFavicon />
 			<TooltipProvider>
 				<SiteHeader />
 				<Outlet />

@@ -20,6 +20,7 @@ import { articleHeadings } from '#/constants/headings'
 import { useBlogNavigation } from '#/hooks/use-blog-navigation'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
 import { getPostAssetUrl } from '#/lib/blog'
+import { blogPostHead } from '#/lib/seo'
 
 export const Route = createFileRoute('/blog/$slug')({
 	loader: async ({ context, params }) => {
@@ -31,7 +32,15 @@ export const Route = createFileRoute('/blog/$slug')({
 					staleTime: 30_000,
 				})
 			)
-			return { title: post.title, description: post.description }
+			return {
+				title: post.title,
+				slug: post.slug,
+				description: post.description,
+				publishedAt: post.publishedAt,
+				tags: post.tags,
+				author: post.author,
+				cover: post.cover,
+			}
 		} catch (error) {
 			if (
 				error instanceof ORPCError &&
@@ -42,12 +51,7 @@ export const Route = createFileRoute('/blog/$slug')({
 			throw error
 		}
 	},
-	head: ({ loaderData }) => ({
-		meta: [
-			{ title: `${loaderData?.title ?? 'Blog'} | MrBoxs` },
-			{ name: 'description', content: loaderData?.description },
-		],
-	}),
+	head: ({ loaderData }) => blogPostHead(loaderData),
 	headers: () => ({ 'Cache-Control': 'no-store' }),
 	pendingComponent: BlogPending,
 	notFoundComponent: BlogNotFound,

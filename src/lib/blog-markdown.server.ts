@@ -5,6 +5,7 @@ import {
 	getPostBySlug,
 	PostNotFoundError,
 } from '#/lib/blog.server'
+import { postPath, publicUrl } from '#/lib/site'
 
 export async function handleBlogMarkdownRequest(
 	request: Request,
@@ -28,6 +29,7 @@ export async function handleBlogMarkdownRequest(
 	}
 	try {
 		const post = await getPostBySlug(slug)
+		headers.set('Link', `<${publicUrl(postPath(post.slug))}>; rel="canonical"`)
 		return respond(getPostMarkdown(post))
 	} catch (error) {
 		if (error instanceof PostNotFoundError) return respond('Not found', 404)
