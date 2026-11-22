@@ -12,6 +12,8 @@ import { voidPlugin } from 'void'
 
 import process from 'node:process'
 
+import { vercelOgWorker } from './scripts/vercel-og'
+
 const chunkSizeBudget: Plugin = {
 	name: 'chunk-size-budget',
 	apply: 'build',
@@ -397,6 +399,7 @@ const config = defineConfig({
 
 		return [
 			devtools(),
+			vercelOgWorker(),
 			voidPlugin(),
 			tailwindcss(),
 			tanstackStart({
@@ -416,7 +419,13 @@ const config = defineConfig({
 				// Vite+ 1.5.1 otherwise fingerprints the agent's per-command ID.
 				command: 'CODEX_TOOL_CALL_ID= vp build',
 				cache: {
-					env: ['VOID_*', 'CLOUDFLARE_*', '!CLOUDFLARE_API_TOKEN'],
+					env: [
+						'VOID_*',
+						'CLOUDFLARE_*',
+						'APP_URL',
+						'VITE_*',
+						'!CLOUDFLARE_API_TOKEN',
+					],
 					// Generated runtime state must not invalidate the build cache.
 					input: [
 						'**/*',

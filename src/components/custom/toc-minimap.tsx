@@ -7,7 +7,7 @@ import {
 	useState,
 	useSyncExternalStore,
 } from 'react'
-import type { MouseEvent, ReactNode } from 'react'
+import type { CSSProperties, MouseEvent, ReactNode } from 'react'
 
 import { IconList } from '@tabler/icons-react'
 import { cn } from 'cn'
@@ -30,9 +30,17 @@ export type TOCItemType = {
 export type TOCMinimapProps = {
 	items: Array<TOCItemType>
 	className?: string
+	style?: CSSProperties
+	/** Desktop popup cap; smaller screens use half the viewport height. */
+	maxHeight?: string
 }
 
-export function TOCMinimap({ items, className }: TOCMinimapProps) {
+export function TOCMinimap({
+	items,
+	className,
+	style,
+	maxHeight,
+}: TOCMinimapProps) {
 	const headings = useMemo(
 		() =>
 			items.flatMap((item) => {
@@ -47,16 +55,25 @@ export function TOCMinimap({ items, className }: TOCMinimapProps) {
 		[items]
 	)
 	return headings.length > 0 ? (
-		<TOCMinimapContent items={headings} className={className} />
+		<TOCMinimapContent
+			items={headings}
+			className={className}
+			style={style}
+			maxHeight={maxHeight}
+		/>
 	) : null
 }
 
 function TOCMinimapContent({
 	items,
 	className,
+	style,
+	maxHeight,
 }: {
 	items: Array<TOCItemType & { id: string }>
 	className?: string
+	style?: CSSProperties
+	maxHeight?: string
 }) {
 	const router = useRouter()
 	const itemIds = useMemo(() => items.map((item) => item.id), [items])
@@ -66,7 +83,8 @@ function TOCMinimapContent({
 	const pendingFocus = useRef<HTMLElement | null>(null)
 	const outline = useRef<HTMLElement | null>(null)
 	const [play] = useSound(uMiniMapOpenSound, { volume: 0.3 })
-	const barHeight = `min(${Math.max(items.length * 14 - 12, 2)}px, 50dvh)`
+	const desktopMaxHeight = `max(min(10rem, 50dvh), ${maxHeight ?? '50dvh'})`
+	const barHeight = `min(${Math.max(items.length * 14 - 12, 2)}px, max(0px, calc(${desktopMaxHeight} - 1.5rem)))`
 	const attachOutline = useCallback((element: HTMLElement | null) => {
 		outline.current = element
 		alignActiveItem(element)
@@ -110,9 +128,10 @@ function TOCMinimapContent({
 	return (
 		<div
 			data-slot="toc-minimap"
-			className={cn('w-fit lg:w-14', className)}
+			className={cn('w-fit lg:w-18', className)}
 			style={{
 				top: `max(0px, calc((100dvh - max(2.75rem, calc(${barHeight} + 1.5rem))) / 2))`,
+				...style,
 			}}
 		>
 			<Popover
@@ -144,13 +163,13 @@ function TOCMinimapContent({
 					delay={0}
 					closeDelay={100}
 					aria-label="Table of contents"
-					className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm px-3 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none lg:py-3 lg:pr-0 lg:pl-6"
+					className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm px-3 text-sm text-muted-foreground transition-[color,opacity] duration-200 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none lg:w-full lg:px-6 lg:py-3 lg:aria-expanded:opacity-0"
 				>
 					<IconList aria-hidden="true" className="size-4 lg:hidden" />
 					<span className="lg:sr-only">On this page</span>
 					<span
 						aria-hidden="true"
-						className="hidden w-8 flex-col justify-between lg:flex"
+						className="hidden w-6 flex-col gap-3 overflow-hidden lg:flex"
 						style={{ height: barHeight }}
 					>
 						{items.map((item) => (
@@ -159,7 +178,7 @@ function TOCMinimapContent({
 								data-depth={Math.min(4, Math.max(2, item.depth))}
 								data-active={item.id === activeHeading}
 								className={cn(
-									'h-0.5 w-6 rounded-xs bg-ring/50 transition-colors duration-200 motion-reduce:transition-none',
+									'h-0.5 w-6 shrink-0 rounded-xs bg-ring/50 transition-colors duration-200 motion-reduce:transition-none',
 									'data-[depth=3]:ml-2 data-[depth=3]:w-4',
 									'data-[depth=4]:ml-4 data-[depth=4]:w-2',
 									'data-active:bg-foreground'
@@ -169,7 +188,7 @@ function TOCMinimapContent({
 					</span>
 				</PopoverTrigger>
 				<PopoverContent
-					className="w-56 max-w-[calc(100dvw-2rem)] overflow-hidden p-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none"
+					className="w-56 max-w-[calc(100dvw-2rem)] overflow-hidden rounded-xl p-0 transition-none duration-200 data-[side=left]:slide-in-from-right-3 data-[side=left]:slide-out-to-right-3 data-open:zoom-in-100 motion-reduce:data-open:animate-none data-closed:zoom-out-100 motion-reduce:data-closed:animate-none"
 					initialFocus={(interaction) =>
 						interaction === 'keyboard'
 							? (outline.current?.querySelector<HTMLAnchorElement>(
@@ -198,13 +217,16 @@ function TOCMinimapContent({
 					align="start"
 					alignOffset={0}
 					side="left"
-					sideOffset={4}
+					sideOffset={-60}
 				>
 					<PopoverTitle className="sr-only">On this page</PopoverTitle>
 					<nav
 						ref={attachOutline}
 						aria-label="On this page"
-						className="relative max-h-[50dvh] overflow-y-auto overscroll-contain"
+						className="relative max-h-[50dvh] overflow-y-auto overscroll-contain lg:max-h-(--toc-popup-max-height)"
+						style={
+							{ '--toc-popup-max-height': desktopMaxHeight } as CSSProperties
+						}
 					>
 						<ul className="flex flex-col px-4 py-2 text-sm">
 							{items.map((item) => (

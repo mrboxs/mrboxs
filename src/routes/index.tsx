@@ -14,8 +14,9 @@ import {
 } from '#/components/portfolio/personal-information'
 import { ProfileHeader } from '#/components/portfolio/profile-header'
 import { Projects } from '#/components/portfolio/projects'
+import { homeHead } from '#/lib/seo'
 
-export const Route = createFileRoute('/')({ component: Home })
+export const Route = createFileRoute('/')({ head: homeHead, component: Home })
 
 function Home() {
 	return (

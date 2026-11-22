@@ -14,12 +14,13 @@ import {
 	InputGroupInput,
 } from '#/components/ui/input-group'
 import { useBlogUpdates } from '#/hooks/use-blog-updates'
+import { blogIndexHead } from '#/lib/seo'
 
 const description = `Things I've built, tried, and figured out.`
 
 export const Route = createFileRoute('/blog/')({
 	loader: async ({ context }) => {
-		await context.queryClient.query(
+		return context.queryClient.query(
 			context.orpc.blog.list.queryOptions({
 				input: {},
 				retry: false,
@@ -27,12 +28,7 @@ export const Route = createFileRoute('/blog/')({
 			})
 		)
 	},
-	head: () => ({
-		meta: [
-			{ title: 'Blog | MrBoxs' },
-			{ name: 'description', content: description },
-		],
-	}),
+	head: ({ loaderData }) => blogIndexHead(loaderData),
 	headers: () => ({ 'Cache-Control': 'no-store' }),
 	pendingComponent: BlogPending,
 	errorComponent: BlogError,
