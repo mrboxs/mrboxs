@@ -31,6 +31,7 @@ export type TOCMinimapProps = {
 	items: Array<TOCItemType>
 	className?: string
 	style?: CSSProperties
+	/** Desktop popup cap; smaller screens use half the viewport height. */
 	maxHeight?: string
 }
 
@@ -82,7 +83,8 @@ function TOCMinimapContent({
 	const pendingFocus = useRef<HTMLElement | null>(null)
 	const outline = useRef<HTMLElement | null>(null)
 	const [play] = useSound(uMiniMapOpenSound, { volume: 0.3 })
-	const barHeight = `min(${Math.max(items.length * 14 - 12, 2)}px, max(0px, calc(${maxHeight ?? '50dvh'} - 1.5rem)))`
+	const desktopMaxHeight = `max(min(10rem, 50dvh), ${maxHeight ?? '50dvh'})`
+	const barHeight = `min(${Math.max(items.length * 14 - 12, 2)}px, max(0px, calc(${desktopMaxHeight} - 1.5rem)))`
 	const attachOutline = useCallback((element: HTMLElement | null) => {
 		outline.current = element
 		alignActiveItem(element)
@@ -221,8 +223,10 @@ function TOCMinimapContent({
 					<nav
 						ref={attachOutline}
 						aria-label="On this page"
-						className="relative max-h-[50dvh] overflow-y-auto overscroll-contain"
-						style={{ maxHeight }}
+						className="relative max-h-[50dvh] overflow-y-auto overscroll-contain lg:max-h-(--toc-popup-max-height)"
+						style={
+							{ '--toc-popup-max-height': desktopMaxHeight } as CSSProperties
+						}
 					>
 						<ul className="flex flex-col px-4 py-2 text-sm">
 							{items.map((item) => (

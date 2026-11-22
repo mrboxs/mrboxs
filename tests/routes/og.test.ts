@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 import {
 	BlogSourceError,
@@ -9,7 +9,11 @@ import { handleOgRequest } from '#/lib/og/image.server'
 
 import { blogPost } from '../helpers/blog'
 
-const render = vi.hoisted(() => vi.fn<() => Response>())
+const { render, waitUntil } = vi.hoisted(() => ({
+	render: vi.fn<() => Response>(),
+	waitUntil: vi.fn<(task: Promise<unknown>) => void>(),
+}))
+vi.mock('cloudflare:workers', () => ({ waitUntil }))
 vi.mock('void/env', () => ({
 	env: {
 		APP_URL: 'https://portfolio.example.test',
@@ -41,7 +45,57 @@ beforeEach(() => {
 	)
 })
 
+afterEach(() => vi.restoreAllMocks())
+
 describe('dynamic OG HTTP contract', () => {
+	it.each(['success', 'failure'] as const)(
+		'keeps abandoned renders registered until %s cleanup releases capacity',
+		async (outcome) => {
+			vi.spyOn(console, 'error').mockImplementation(vi.fn())
+			const controllers: Array<ReadableStreamDefaultController<Uint8Array>> = []
+			render.mockImplementation(
+				() =>
+					new Response(
+						new ReadableStream<Uint8Array>({
+							start(controller) {
+								controllers.push(controller)
+							},
+						})
+					)
+			)
+			vi.mocked(getPostBySlug).mockImplementation((slug) =>
+				Promise.resolve({ ...blogPost, slug, title: `Lifetime ${slug}` })
+			)
+			const abort = new AbortController()
+			const pending = ['one', 'two'].map((id) =>
+				handleOgRequest(
+					new Request('https://example.com/og/blog.png', {
+						signal: abort.signal,
+					}),
+					`${outcome}-${id}`
+				)
+			)
+			await vi.waitFor(() => expect(waitUntil).toHaveBeenCalledTimes(2))
+			abort.abort()
+			for (const controller of controllers) {
+				if (outcome === 'failure') controller.error(new Error('render failed'))
+				else {
+					controller.enqueue(new Uint8Array([137, 80, 78, 71]))
+					controller.close()
+				}
+			}
+			await Promise.all(waitUntil.mock.calls.map(([task]) => task))
+			const responses = await Promise.all(pending)
+			expect(responses.map((response) => response.status)).toEqual(
+				outcome === 'success' ? [200, 200] : [503, 503]
+			)
+			render.mockImplementation(
+				() => new Response(new Uint8Array([137, 80, 78, 71]))
+			)
+			expect((await request(`${outcome}-after-cleanup`)).status).toBe(200)
+		}
+	)
+
 	it('renders the default preview without accessing the blog source', async () => {
 		const response = await request()
 		expect(response.status).toBe(200)

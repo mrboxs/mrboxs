@@ -51,6 +51,8 @@ Rendering uses `@vercel/og` 0.11.1. `scripts/vercel-og.ts` loads its edge entry 
 
 A bounded in-memory cache retains up to 16 renders for 60 seconds and combines simultaneous identical requests. Publication is checked before every cache lookup, including HEAD. At most two different images render concurrently. Errors are not cached, and HTTP responses use `no-store`, allowing an unpublish or deletion to take effect through the existing content service.
 
+Render settlement and failure eviction are registered with Workers `waitUntil`, keeping capacity cleanup attached to the request lifetime even if its client disconnects. The handler still awaits the image before returning PNG bytes.
+
 The artwork follows the existing monochrome portfolio: ENERGY 2 / RHYTHM 2 / MOTION 1, static typography with a single isometric identity motif. The name or article title is the focal point; secondary gray text and frame lines support hierarchy. Assets and font provenance are recorded in `src/assets/og/README.md`.
 
 ## Favicons
@@ -68,4 +70,4 @@ Tests cover metadata, JSON-LD escaping, published-only crawler responses, HTTP m
 - Hard gate PASS: the supplied brand assets and existing copy are used; long text is bounded; actual PNGs were inspected with both symbols visible. No interactive controls were added. Theme-state tests verify both favicon variants.
 - Purpose gate PASS: monochrome color, frame lines, restrained typography, and the isometric motif follow the written portfolio direction and support the title hierarchy.
 - Liveliness PASS: ENERGY 2 / RHYTHM 2 / MOTION 1, a clear name/article-title focal point, structural spacing, and the existing isometric mark as the single graphic accent are present in both inspected previews.
-- Craftsmanship PASS: 442 tests pass; format, lint, and type checks pass; React Doctor reports 100/100 with no diagnostics. Production Worker HTTP checks pass for page metadata, crawler documents, PNGs, visible logo pixels, and missing-article 404/noindex behavior. The largest JavaScript chunks are 250,914 bytes in the browser and 411,151 bytes in the Worker, below the enforced 500,000-byte budget.
+- Craftsmanship PASS: 445 tests pass; format, lint, and type checks pass; React Doctor reports 100/100 with no diagnostics. Production Worker HTTP checks pass for page metadata, crawler documents, PNGs, visible logo pixels, and missing-article 404/noindex behavior. Regression tests cover short-viewport TOC sizing and OG render cleanup after client disconnection. The largest JavaScript chunks are 251,014 bytes in the browser and 411,194 bytes in the Worker, below the enforced 500,000-byte budget.

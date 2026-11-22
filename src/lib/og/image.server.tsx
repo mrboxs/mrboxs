@@ -1,5 +1,6 @@
 import '@tanstack/react-start/server-only'
 import { ImageResponse } from '@vercel/og'
+import { waitUntil } from 'cloudflare:workers'
 
 import type { PostMetadata } from '#/lib/blog'
 import {
@@ -91,9 +92,13 @@ export async function handleOgRequest(
 			})
 			entry = { image, expiresAt: Date.now() + 60_000 }
 			renderedImages.set(key, entry)
-			image.catch(() => {
-				if (renderedImages.get(key)?.image === image) renderedImages.delete(key)
-			})
+			waitUntil(
+				image.catch(() => {
+					if (renderedImages.get(key)?.image === image) {
+						renderedImages.delete(key)
+					}
+				})
+			)
 		}
 		const bytes = await entry.image
 		headers.set('Content-Type', 'image/png')

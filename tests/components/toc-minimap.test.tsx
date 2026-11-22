@@ -16,7 +16,10 @@ import type { Root } from 'react-dom/client'
 import { renderToString } from 'react-dom/server'
 
 import { TOCMinimap } from '#/components/custom/toc-minimap'
-import type { TOCItemType } from '#/components/custom/toc-minimap'
+import type {
+	TOCItemType,
+	TOCMinimapProps,
+} from '#/components/custom/toc-minimap'
 
 const { play } = vi.hoisted(() => ({ play: vi.fn() }))
 vi.mock('#/hooks/use-sound', () => ({ useSound: () => [play, {}] }))
@@ -90,10 +93,10 @@ afterEach(async () => {
 	vi.unstubAllGlobals()
 })
 
-function view(outline = items) {
+function view(outline = items, props: Pick<TOCMinimapProps, 'maxHeight'> = {}) {
 	return (
 		<RouterContextProvider router={router}>
-			<TOCMinimap items={outline} />
+			<TOCMinimap items={outline} {...props} />
 			<article>
 				<h2 id="first" tabIndex={-1}>
 					First section
@@ -147,6 +150,24 @@ function currentBar() {
 }
 
 describe('TOC minimap', () => {
+	it('keeps the popup viewport-sized on mobile and floors a collapsed desktop constraint', async () => {
+		const headerCap = 'max(0px, calc(100dvh - 288px - 6rem))'
+		await frame(() => root.render(view(items, { maxHeight: headerCap })))
+		await open()
+		const outline = document.querySelector<HTMLElement>(
+			'nav[aria-label="On this page"]'
+		)
+		if (!outline) throw new Error('Missing TOC outline')
+		expect(outline.style.maxHeight).toBe('')
+		expect(outline.classList.contains('max-h-[50dvh]')).toBe(true)
+		expect(
+			outline.classList.contains('lg:max-h-(--toc-popup-max-height)')
+		).toBe(true)
+		expect(outline.style.getPropertyValue('--toc-popup-max-height')).toBe(
+			`max(min(10rem, 50dvh), ${headerCap})`
+		)
+	})
+
 	it('omits empty and invalid outlines without creating observers', async () => {
 		await render([])
 		expect(container.querySelector('button')).toBeNull()
