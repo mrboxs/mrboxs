@@ -2,10 +2,12 @@
 
 import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 
-import { act, StrictMode } from 'react'
+import { act, StrictMode, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 
-import { TextLoop } from '#/components/custom/text-loop'
+import { MotionConfig } from 'motion/react'
+
+import { TextSwap } from '#/components/custom/text-swap'
 import { ProfileHeader } from '#/components/portfolio/profile-header'
 import { profile } from '#/data/profile'
 
@@ -21,6 +23,12 @@ const items = [
 	<span key="first">First tagline</span>,
 	<span key="second">Second tagline</span>,
 ]
+
+function render(element: ReactNode) {
+	return actAndFlush(() =>
+		root?.render(<MotionConfig skipAnimations>{element}</MotionConfig>)
+	)
+}
 
 beforeEach(() => {
 	vi.useFakeTimers()
@@ -49,13 +57,11 @@ afterEach(async () => {
 
 it('notifies once per rotation in Strict Mode without an initial notification', async () => {
 	const onIndexChange = vi.fn()
-	await actAndFlush(() => {
-		root?.render(
-			<StrictMode>
-				<TextLoop onIndexChange={onIndexChange}>{items}</TextLoop>
-			</StrictMode>
-		)
-	})
+	await render(
+		<StrictMode>
+			<TextSwap onIndexChange={onIndexChange}>{items}</TextSwap>
+		</StrictMode>
+	)
 	expect(onIndexChange).not.toHaveBeenCalled()
 	await act(async () => vi.advanceTimersByTimeAsync(2200))
 	expect(onIndexChange.mock.calls).toEqual([[1]])
@@ -65,55 +71,37 @@ it('notifies once per rotation in Strict Mode without an initial notification', 
 
 it('advances every elapsed interval when React batches the updates', async () => {
 	const onIndexChange = vi.fn()
-	await actAndFlush(() => {
-		root?.render(<TextLoop onIndexChange={onIndexChange}>{items}</TextLoop>)
-	})
+	await render(<TextSwap onIndexChange={onIndexChange}>{items}</TextSwap>)
 	await actAndFlush(() => vi.advanceTimersByTime(6000))
 	expect(onIndexChange.mock.calls).toEqual([[1], [0], [1]])
 })
 
 it.each([0, 1])('does not rotate with %i items', async (count) => {
 	const onIndexChange = vi.fn()
-	await actAndFlush(() => {
-		root?.render(
-			<TextLoop onIndexChange={onIndexChange}>{items.slice(0, count)}</TextLoop>
-		)
-	})
+	await render(
+		<TextSwap onIndexChange={onIndexChange}>{items.slice(0, count)}</TextSwap>
+	)
 	await act(async () => vi.advanceTimersByTimeAsync(6000))
 	expect(onIndexChange).not.toHaveBeenCalled()
 })
 
 it('stops notifying after unmount', async () => {
 	const onIndexChange = vi.fn()
-	await actAndFlush(() => {
-		root?.render(<TextLoop onIndexChange={onIndexChange}>{items}</TextLoop>)
-	})
+	await render(<TextSwap onIndexChange={onIndexChange}>{items}</TextSwap>)
 	await actAndFlush(() => root?.unmount())
 	root = null
 	await act(async () => vi.advanceTimersByTimeAsync(6000))
 	expect(onIndexChange).not.toHaveBeenCalled()
 })
 
-it('pauses and resumes the profile tagline from its accessible control', async () => {
-	await actAndFlush(() => root?.render(<ProfileHeader />))
+it('rotates the profile tagline without playback or pronunciation controls', async () => {
+	await render(<ProfileHeader />)
 	const tagline = container.querySelector('#profile-tagline')
 	expect(tagline?.textContent).toBe(profile.taglines[0])
 	await act(async () => vi.advanceTimersByTimeAsync(2200))
 	expect(tagline?.textContent).toBe(profile.taglines[1])
 
-	const pause = container.querySelector<HTMLButtonElement>(
-		'button[aria-label="Pause tagline rotation"]'
-	)
-	expect(pause?.getAttribute('aria-controls')).toBe('profile-tagline')
-	await actAndFlush(() => pause?.click())
-	await act(async () => vi.advanceTimersByTimeAsync(6000))
-	expect(tagline?.textContent).toBe(profile.taglines[1])
-
-	const resume = container.querySelector<HTMLButtonElement>(
-		'button[aria-label="Resume tagline rotation"]'
-	)
-	expect(resume).not.toBeNull()
-	await actAndFlush(() => resume?.click())
-	await act(async () => vi.advanceTimersByTimeAsync(2200))
+	expect(container.querySelector('button')).toBeNull()
+	await act(async () => vi.advanceTimersByTimeAsync(2000))
 	expect(tagline?.textContent).toBe(profile.taglines[2])
 })

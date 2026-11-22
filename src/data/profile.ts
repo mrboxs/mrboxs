@@ -2,7 +2,6 @@
 export const profile = {
 	displayName: 'MrBoxs',
 	githubUsername: 'mrboxs',
-	pronunciation: 'Mister Box',
 	avatar: 'https://avatars.githubusercontent.com/u/49678400?v=4&s=320',
 	taglines: [
 		'Building things with code.',
