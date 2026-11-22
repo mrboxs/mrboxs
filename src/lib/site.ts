@@ -1,9 +1,26 @@
+import { createIsomorphicFn } from '@tanstack/react-start'
+
+import { env } from 'void/env'
+
 import { profile } from '#/data/profile'
-import { productionSiteUrl } from '#/data/site'
+
+const getAppOrigin = createIsomorphicFn()
+	.server(() => {
+		const origin = new URL(env.APP_URL).origin
+		if (origin !== new URL(env.VITE_APP_URL).origin) {
+			throw new Error(
+				'APP_URL and VITE_APP_URL must use the same public origin.'
+			)
+		}
+		return origin
+	})
+	.client(() => new URL(env.VITE_APP_URL).origin)
 
 export const site = {
 	name: profile.displayName,
-	origin: new URL(productionSiteUrl).origin,
+	get origin() {
+		return getAppOrigin()
+	},
 	description: profile.taglines.join(' '),
 	blogDescription: "Things I've built, tried, and figured out.",
 	language: 'en',

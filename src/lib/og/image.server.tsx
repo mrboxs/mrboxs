@@ -57,6 +57,7 @@ export async function handleOgRequest(
 	try {
 		// Publication is checked above on every request, including cache hits.
 		const key = JSON.stringify([
+			site.origin,
 			post?.slug,
 			post?.title ?? site.name,
 			post?.description ?? site.description,

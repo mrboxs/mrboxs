@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { describe, expect, it, vi } from 'vite-plus/test'
 
 import { ImageResponse } from '@vercel/og'
 import sharp from 'sharp'
@@ -6,6 +6,13 @@ import sharp from 'sharp'
 import { OgCard, ogSize } from '#/lib/og/card'
 
 import { blogMetadata } from '../helpers/blog'
+
+vi.mock('void/env', () => ({
+	env: {
+		APP_URL: 'https://portfolio.example.test',
+		VITE_APP_URL: 'https://portfolio.example.test',
+	},
+}))
 
 describe('OG raster output', () => {
 	it.each([

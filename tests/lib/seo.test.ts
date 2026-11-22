@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
 import { z } from 'zod'
 
@@ -13,6 +13,17 @@ import { publicUrl, site } from '#/lib/site'
 
 import { blogMetadata } from '../helpers/blog'
 
+const urls = vi.hoisted(() => ({
+	APP_URL: 'https://portfolio.example.test',
+	VITE_APP_URL: 'https://portfolio.example.test',
+}))
+vi.mock('void/env', () => ({ env: urls }))
+
+afterEach(() => {
+	urls.APP_URL = 'https://portfolio.example.test'
+	urls.VITE_APP_URL = 'https://portfolio.example.test'
+})
+
 function parseGraph(value: string): Array<Record<string, unknown>> {
 	const parsed: unknown = JSON.parse(value)
 	return z
@@ -21,20 +32,21 @@ function parseGraph(value: string): Array<Record<string, unknown>> {
 }
 
 describe('page metadata', () => {
-	it('uses the production origin and the existing profile for home previews', () => {
+	it('uses the configured origin and the existing profile for home previews', () => {
 		const head = homeHead()
 		expect(head.links).toContainEqual({
 			rel: 'canonical',
-			href: 'https://mrboxs.isntboxs.workers.dev/',
+			href: 'https://portfolio.example.test/',
 		})
 		expect(head.meta).toEqual(
 			expect.arrayContaining([
-				{ title: 'MrBoxs | Portfolio' },
+				{ title: "MrBoxs | Things I've built, tried, and figured out." },
 				{ name: 'description', content: site.description },
 				{ property: 'og:image', content: publicUrl('/og/default.png') },
 				{ property: 'og:image:width', content: '1200' },
 				{ property: 'og:image:height', content: '630' },
 				{ name: 'twitter:card', content: 'summary_large_image' },
+				{ name: 'twitter:url', content: publicUrl('/') },
 			])
 		)
 		const graph = parseGraph(head.scripts[0].children)
@@ -56,6 +68,19 @@ describe('page metadata', () => {
 		)
 	})
 
+	it('reads server URL configuration at request time and normalizes it to an origin', () => {
+		urls.APP_URL = 'https://staging.example.test/ignored/path'
+		urls.VITE_APP_URL = 'https://staging.example.test/'
+		expect(publicUrl('/blog')).toBe('https://staging.example.test/blog')
+	})
+
+	it('rejects configuration that would produce different server and client metadata', () => {
+		urls.APP_URL = 'https://different.example.test'
+		expect(() => homeHead()).toThrow(
+			'APP_URL and VITE_APP_URL must use the same public origin.'
+		)
+	})
+
 	it('uses current article data, a revisioned image, breadcrumbs, and a Markdown alternate', () => {
 		const head = blogPostHead(blogMetadata)
 		expect(head.links).toEqual(
@@ -72,6 +97,7 @@ describe('page metadata', () => {
 				{ title: 'Tulisan Pertama | MrBoxs' },
 				{ property: 'og:type', content: 'article' },
 				{ property: 'og:url', content: publicUrl('/blog/tulisan-pertama') },
+				{ name: 'twitter:url', content: publicUrl('/blog/tulisan-pertama') },
 				{
 					property: 'og:image',
 					content: publicUrl(

@@ -22,7 +22,12 @@ import { getRouter } from '#/router'
 import { blogMetadata, blogPost } from '../helpers/blog'
 import { actAndFlush } from '../helpers/react'
 
-vi.mock('void/env', () => ({ env: {} }))
+vi.mock('void/env', () => ({
+	env: {
+		APP_URL: 'https://portfolio.example.test',
+		VITE_APP_URL: 'https://portfolio.example.test',
+	},
+}))
 vi.mock('#/hooks/use-sound', () => ({ useSound: () => [vi.fn(), {}] }))
 vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
 	...(await importOriginal()),

@@ -10,7 +10,12 @@ import {
 
 import { blogPost } from '../helpers/blog'
 
-vi.mock('void/env', () => ({ env: {} }))
+vi.mock('void/env', () => ({
+	env: {
+		APP_URL: 'https://portfolio.example.test',
+		VITE_APP_URL: 'https://portfolio.example.test',
+	},
+}))
 vi.mock(import('#/lib/blog.server'), async (importOriginal) => ({
 	...(await importOriginal()),
 	getPostBySlug: vi.fn(),

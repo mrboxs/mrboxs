@@ -1,6 +1,24 @@
 # SEO and social previews
 
-The production origin is `https://mrboxs.isntboxs.workers.dev`, defined in `src/data/site.ts`. Change it there when moving domains. Canonical URLs, structured data, sitemaps, Markdown canonical headers, and social image URLs all use this trusted origin, independently of the incoming request host.
+URLs use the typed environment variables declared in `env.ts`: `APP_URL` on the server and `VITE_APP_URL` in browser code. The production default for both is `https://mrboxs.isntboxs.workers.dev`. Override the variables for another environment; the application does not derive canonical URLs from the incoming request host.
+
+Local `.env` configuration:
+
+```ini
+APP_URL=http://localhost:3000
+VITE_APP_URL=http://localhost:3000
+```
+
+For production, `APP_URL` is a server runtime value, configurable with `vpx void secret put APP_URL=https://your-domain.example`. `VITE_APP_URL` is a public build-time value. Set the repository's Actions variable `VITE_APP_URL` for the deploy workflow, or supply it in the build shell. Void's deploy command deliberately ignores `.env` client values; a direct `vp build` follows Vite's normal `.env` loading. If neither variable is overridden during deployment, the schema's production defaults keep the current deployment working. The build task fingerprints `APP_URL` and `VITE_*` so changing a URL does not reuse an older environment's cached output.
+
+For a local check of the production-domain build, supply matching values explicitly:
+
+```sh
+APP_URL=https://mrboxs.isntboxs.workers.dev VITE_APP_URL=https://mrboxs.isntboxs.workers.dev vp build
+APP_URL=https://mrboxs.isntboxs.workers.dev VITE_APP_URL=https://mrboxs.isntboxs.workers.dev vp preview --port 3000 --strictPort
+```
+
+Both variables must identify the same public origin. The server rejects a mismatch so canonical URLs and JSON-LD cannot change after hydration. Server configuration is read inside the isomorphic server function at request time; the browser bundle contains only the client implementation. Canonical URLs, structured data, crawler documents, Markdown canonical headers, and OG image host labels use that configured origin. OG render cache keys include the origin.
 
 Names and descriptions come from the existing profile, About section, projects, and published blog metadata. Placeholder contact details, the placeholder LinkedIn URL, and the placeholder employer are excluded from structured data.
 
@@ -43,11 +61,11 @@ The adaptive SVG follows the browser color preference before hydration. `ThemeFa
 
 Run `vp check`, `vp test`, `vp run typecheck`, and `vp build`. Run the changed-code React Doctor scan with `vp run doctor --scope changed --base HEAD --include-untracked`.
 
-Tests cover metadata, JSON-LD escaping, published-only crawler responses, HTTP methods and failures, publication checks on cached OG images, PNG dimensions and visible logo pixels, long titles, and light/dark favicon changes. HTTP checks against the local Worker verify rendered page heads, 404/noindex behavior, public text endpoints, image responses, HEAD, and all public brand assets.
+Tests cover metadata, JSON-LD escaping, published-only crawler responses, HTTP methods and failures, publication checks on cached OG images, PNG dimensions and visible logo pixels, long titles, and light/dark favicon changes. URL configuration tests verify request-time server reads, browser-only public configuration, normalization, and rejection of mismatched origins. HTTP checks against the local Worker verify rendered page heads, 404/noindex behavior, public text endpoints, image responses, HEAD, and all public brand assets.
 
 ## Delivery gate
 
 - Hard gate PASS: the supplied brand assets and existing copy are used; long text is bounded; actual PNGs were inspected with both symbols visible. No interactive controls were added. Theme-state tests verify both favicon variants.
 - Purpose gate PASS: monochrome color, frame lines, restrained typography, and the isometric motif follow the written portfolio direction and support the title hierarchy.
 - Liveliness PASS: ENERGY 2 / RHYTHM 2 / MOTION 1, a clear name/article-title focal point, structural spacing, and the existing isometric mark as the single graphic accent are present in both inspected previews.
-- Craftsmanship PASS: 439 tests pass; format, lint, and type checks pass; React Doctor reports 100/100 with no diagnostics. Production Worker HTTP checks pass for page metadata, crawler documents, PNGs, visible logo pixels, and missing-article 404/noindex behavior. The largest JavaScript chunks are 250,914 bytes in the browser and 411,142 bytes in the Worker, below the enforced 500,000-byte budget.
+- Craftsmanship PASS: 442 tests pass; format, lint, and type checks pass; React Doctor reports 100/100 with no diagnostics. Production Worker HTTP checks pass for page metadata, crawler documents, PNGs, visible logo pixels, and missing-article 404/noindex behavior. The largest JavaScript chunks are 250,914 bytes in the browser and 411,151 bytes in the Worker, below the enforced 500,000-byte budget.

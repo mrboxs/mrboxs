@@ -27,6 +27,7 @@ jobs:
         run: vp run test
       - name: Deploy
         env:
+          VITE_APP_URL: ${{ vars.VITE_APP_URL }}
           # Add this scoped token at Settings → Secrets and variables → Actions.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           # Required only for PostgreSQL/MySQL provisioning and migrations.
@@ -36,4 +37,6 @@ jobs:
           # Required only when Cloudflare Access protects Worker readiness.
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-        run: vp run deploy
+        run: |
+          if [ -z "$VITE_APP_URL" ]; then unset VITE_APP_URL; fi
+          vp run deploy

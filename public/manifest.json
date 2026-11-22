@@ -1,11 +1,11 @@
 {
 	"id": "/",
-	"name": "MrBoxs | Portfolio",
+	"name": "MrBoxs | Things I've built, tried, and figured out.",
 	"short_name": "MrBoxs",
 	"description": "Building things with code. Making mistakes. Finding better ways. Still figuring things out.",
 	"start_url": "/",
 	"scope": "/",
-	"display": "browser",
+	"display": "standalone",
 	"background_color": "#080808",
 	"theme_color": "#080808",
 	"icons": [

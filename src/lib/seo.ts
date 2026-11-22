@@ -72,6 +72,9 @@ export function seoHead(options: {
 			{ property: 'og:image:height', content: '630' },
 			{ property: 'og:image:alt', content: imageAlt },
 			{ name: 'twitter:card', content: 'summary_large_image' },
+			...(options.path
+				? [{ name: 'twitter:url', content: publicUrl(options.path) }]
+				: []),
 			{ name: 'twitter:site', content: '@isntboxs' },
 			{ name: 'twitter:creator', content: '@isntboxs' },
 			{ name: 'twitter:title', content: options.title },
@@ -106,7 +109,7 @@ export function unavailableHead() {
 
 export function homeHead() {
 	return seoHead({
-		title: `${site.name} | Portfolio`,
+		title: `${site.name} | Things I've built, tried, and figured out.`,
 		description: site.description,
 		path: '/',
 		entities: [

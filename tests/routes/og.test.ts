@@ -10,7 +10,12 @@ import { handleOgRequest } from '#/lib/og/image.server'
 import { blogPost } from '../helpers/blog'
 
 const render = vi.hoisted(() => vi.fn<() => Response>())
-vi.mock('void/env', () => ({ env: {} }))
+vi.mock('void/env', () => ({
+	env: {
+		APP_URL: 'https://portfolio.example.test',
+		VITE_APP_URL: 'https://portfolio.example.test',
+	},
+}))
 vi.mock('@vercel/og', () => ({
 	ImageResponse: function () {
 		return render()

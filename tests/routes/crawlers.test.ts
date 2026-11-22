@@ -12,7 +12,12 @@ import { publicUrl } from '#/lib/site'
 
 import { blogMetadata, blogPost } from '../helpers/blog'
 
-vi.mock('void/env', () => ({ env: {} }))
+vi.mock('void/env', () => ({
+	env: {
+		APP_URL: 'https://portfolio.example.test',
+		VITE_APP_URL: 'https://portfolio.example.test',
+	},
+}))
 vi.mock(import('#/lib/blog.server'), async (original) => ({
 	...(await original()),
 	listPosts: vi.fn(),
