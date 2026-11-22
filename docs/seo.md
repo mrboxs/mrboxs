@@ -55,7 +55,7 @@ The artwork follows the existing monochrome portfolio: ENERGY 2 / RHYTHM 2 / MOT
 
 ## Favicons
 
-The adaptive SVG follows the browser color preference before hydration. `ThemeFavicon` then follows the app's resolved theme, including a saved manual selection, and updates the browser theme color. The supplied brandkit also provides the ICO fallback, Apple touch icon, regular icons, and maskable icon used by `site.webmanifest`.
+The adaptive SVG follows the browser color preference before hydration. `ThemeFavicon` then follows the app's resolved theme, including a saved manual selection, and updates the browser theme color. The supplied brandkit also provides the ICO fallback, Apple touch icon, regular icons, and maskable icon used by `manifest.json`.
 
 ## Validation
 
