@@ -153,7 +153,7 @@ function ImagePreview({
 			<LightboxContent aria-label={label} className="not-prose">
 				<LightboxSlides>
 					<LightboxSlide>
-						<LightboxItem index={0} caption={label}>
+						<LightboxItem index={0} caption={label} aria-label="Image 1 of 1">
 							{failed ? (
 								<div className="flex h-full items-center justify-center px-4 text-center">
 									<output>

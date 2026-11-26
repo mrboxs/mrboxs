@@ -81,19 +81,20 @@
 		"happy-dom": "^21.0.4",
 		"oxlint-plugin-react-doctor": "^0.9.22",
 		"react-doctor": "^0.9.22",
-		"tsrs": "0.24.0-ts7.1.0-beta",
+		"tsrs": "7.1.0-beta.tsrs4",
 		"typescript": "^7.0.2",
-		"vite": "npm:@voidzero-dev/vite-plus-core@1.5.1",
-		"vite-plus": "1.5.1",
-		"void": "^1.8.0"
+		"vite": "npm:@voidzero-dev/vite-plus-core@8.3.8001",
+		"vite-plus": "1.8.0",
+		"void": "^1.11.0"
 	},
 	"overrides": {
-		"vite": "npm:@voidzero-dev/vite-plus-core@1.5.1"
+		"tsrs": "7.1.0-beta.tsrs4",
+		"vite": "npm:@voidzero-dev/vite-plus-core@8.3.8001"
 	},
 	"devEngines": {
 		"packageManager": {
 			"name": "bun",
-			"version": "1.4.4",
+			"version": "1.4.5",
 			"onFail": "download"
 		}
 	},
