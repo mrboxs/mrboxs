@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+import { PageError, PageNotFound } from '#/components/route-feedback'
 import { SiteHeader } from '#/components/site-header'
 import { ThemeFavicon } from '#/components/theme-favicon'
 import { ThemeProvider } from '#/components/theme-provider'
@@ -73,7 +74,9 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 		],
 	}),
 	shellComponent: RootDocument,
-	component: RootComponent,
+	component: Outlet,
+	errorComponent: PageError,
+	notFoundComponent: () => <PageNotFound />,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
@@ -87,7 +90,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				{children}
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="dark"
+					disableTransitionOnChange
+					storageKey="theme"
+				>
+					<ThemeFavicon />
+					<TooltipProvider>
+						<SiteHeader />
+						{children}
+					</TooltipProvider>
+					<Toaster />
+				</ThemeProvider>
 				<TanStackDevtools
 					config={{
 						position: 'bottom-right',
@@ -107,23 +122,5 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<Scripts />
 			</body>
 		</html>
-	)
-}
-
-function RootComponent() {
-	return (
-		<ThemeProvider
-			attribute="class"
-			defaultTheme="dark"
-			disableTransitionOnChange
-			storageKey="theme"
-		>
-			<ThemeFavicon />
-			<TooltipProvider>
-				<SiteHeader />
-				<Outlet />
-			</TooltipProvider>
-			<Toaster />
-		</ThemeProvider>
 	)
 }

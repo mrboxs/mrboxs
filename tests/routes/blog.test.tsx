@@ -1207,6 +1207,63 @@ describe('blog routes', () => {
 		)
 	})
 
+	it.each(['list', 'post'] as const)(
+		'shows the %s loading layout until its data arrives',
+		async (kind) => {
+			let release: (() => void) | undefined
+			const pending = new Promise<void>((resolve) => {
+				release = resolve
+			})
+			vi.mocked(listPosts).mockImplementation(async () => {
+				await pending
+				return [blogMetadata]
+			})
+			vi.mocked(getPostBySlug).mockImplementation(async () => {
+				await pending
+				return blogPost
+			})
+			router.update({
+				context: router.options.context,
+				defaultPendingMs: 0,
+				defaultPendingMinMs: 0,
+			})
+			await renderPath('/not-a-page')
+			let navigation: Promise<void> | undefined
+			await act(async () => {
+				navigation =
+					kind === 'list'
+						? router.navigate({ to: '/blog' })
+						: router.navigate({
+								to: '/blog/$slug',
+								params: { slug: blogPost.slug },
+							})
+				await new Promise((resolve) => setTimeout(resolve, 10))
+			})
+			try {
+				expect(container.querySelector('h1 output')?.textContent).toBe(
+					kind === 'list' ? 'Memuat daftar tulisan…' : 'Memuat tulisan…'
+				)
+				expect(container.querySelector('[aria-busy="true"]')).not.toBeNull()
+			} finally {
+				await act(async () => {
+					release?.()
+					await navigation
+				})
+			}
+			expect(container.querySelector('h1 output')).toBeNull()
+			expect(container.textContent).toContain(blogPost.title)
+		}
+	)
+
+	it('uses the global designed 404 for an unmatched URL', async () => {
+		await renderPath('/not-a-page')
+		expect(container.querySelector('h1')?.textContent).toBe('Page not found')
+		expect(container.textContent).toContain('404')
+		expect(container.querySelector('a[href="/"]')).not.toBeNull()
+		expect(container.querySelector('a[href="/blog"]')).not.toBeNull()
+		expect(getPostBySlug).not.toHaveBeenCalled()
+	})
+
 	it.each(['missing', 'draft'])(
 		'uses the 404 boundary for a %s article',
 		async (slug) => {
@@ -1226,25 +1283,32 @@ describe('blog routes', () => {
 		expect(getPostBySlug).not.toHaveBeenCalled()
 	})
 
-	it('keeps errors private and retries the loader when the retry button is clicked', async () => {
-		vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-		vi.mocked(listPosts).mockRejectedValue(
-			new InvalidBlogContentError(
+	it.each(['list', 'post'] as const)(
+		'keeps %s errors private and retries the loader',
+		async (kind) => {
+			vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+			const error = new InvalidBlogContentError(
 				'posts/private-draft/index.md',
 				'secret-field'
 			)
-		)
-		await renderPath('/blog')
-		expect(container.textContent).toContain('Tulisan belum bisa dimuat')
-		expect(container.textContent).not.toMatch(/private-draft|secret-field/)
-		vi.mocked(listPosts).mockResolvedValue([blogMetadata])
-		const button = container.querySelector<HTMLButtonElement>('button')
-		if (!button) throw new Error('Missing retry button')
-		await act(async () => {
-			button.click()
-			await router.load()
-		})
-		expect(container.textContent).toContain(blogMetadata.title)
-		expect(container.textContent).not.toContain('Tulisan belum bisa dimuat')
-	})
+			if (kind === 'list') vi.mocked(listPosts).mockRejectedValue(error)
+			else vi.mocked(getPostBySlug).mockRejectedValue(error)
+			await renderPath(kind === 'list' ? '/blog' : `/blog/${blogPost.slug}`)
+			expect(container.textContent).toContain('Tulisan belum bisa dimuat')
+			expect(container.textContent).not.toMatch(/private-draft|secret-field/)
+			expect(
+				container.querySelector(`a[href="${kind === 'list' ? '/' : '/blog'}"]`)
+			).not.toBeNull()
+			vi.mocked(listPosts).mockResolvedValue([blogMetadata])
+			vi.mocked(getPostBySlug).mockResolvedValue(blogPost)
+			const button = container.querySelector<HTMLButtonElement>('button')
+			if (!button) throw new Error('Missing retry button')
+			await act(async () => {
+				button.click()
+				await router.load()
+			})
+			expect(container.textContent).toContain(blogMetadata.title)
+			expect(container.textContent).not.toContain('Tulisan belum bisa dimuat')
+		}
+	)
 })

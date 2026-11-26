@@ -5,7 +5,7 @@ import { useRef, useState } from 'react'
 
 import { IconSearch, IconX } from '@tabler/icons-react'
 
-import { BlogError, BlogPending } from '#/components/blog/blog-feedback'
+import { BlogError, BlogListPending } from '#/components/blog/blog-feedback'
 import { BlogPostCard } from '#/components/blog/blog-post-card'
 import {
 	InputGroup,
@@ -30,7 +30,7 @@ export const Route = createFileRoute('/blog/')({
 	},
 	head: ({ loaderData }) => blogIndexHead(loaderData),
 	headers: () => ({ 'Cache-Control': 'no-store' }),
-	pendingComponent: BlogPending,
+	pendingComponent: BlogListPending,
 	errorComponent: BlogError,
 	component: BlogListPage,
 })
