@@ -933,6 +933,11 @@ describe('blog routes', () => {
 				?.getAttribute('src')
 		).toBe('/api/blog/assets/tulisan-pertama/cover.png')
 		expect(
+			document
+				.querySelector('[data-slot="lightbox-item"]')
+				?.getAttribute('aria-label')
+		).toBe('Image 1 of 1')
+		expect(
 			container
 				.querySelector('section[aria-label="Article content"] img')
 				?.getAttribute('loading')

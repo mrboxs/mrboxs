@@ -310,6 +310,9 @@ describe('blog Markdown renderer', () => {
 		expect(dialog.querySelectorAll('[data-slot="lightbox-item"]')).toHaveLength(
 			1
 		)
+		const item = dialog.querySelector('[data-slot="lightbox-item"]')
+		expect(item?.getAttribute('role')).toBe('group')
+		expect(item?.getAttribute('aria-label')).toBe('Image 1 of 1')
 		expect(
 			dialog.querySelector('[data-slot="lightbox-caption"]')?.textContent
 		).toBe('Cover title')
@@ -447,6 +450,11 @@ describe('blog Markdown renderer', () => {
 				.querySelector('[data-slot="lightbox-content"]')
 				?.getAttribute('aria-label')
 		).toBe('Article image')
+		expect(
+			document
+				.querySelector('[data-slot="lightbox-item"]')
+				?.getAttribute('aria-label')
+		).toBe('Image 1 of 1')
 	})
 
 	it('dismisses an open preview when the article image changes', async () => {
