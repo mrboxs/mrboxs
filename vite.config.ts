@@ -68,7 +68,7 @@ const config = defineConfig({
 		'*': 'vp check --fix',
 	},
 	fmt: {
-		ignorePatterns,
+		ignorePatterns: [...ignorePatterns, 'src/typeset.css'],
 		endOfLine: 'lf',
 		semi: false,
 		singleQuote: true,

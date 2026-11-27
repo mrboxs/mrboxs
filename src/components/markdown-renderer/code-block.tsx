@@ -63,7 +63,7 @@ export function MarkdownCodeBlock({ block }: { block: PreparedCodeBlock }) {
 
 	return (
 		<div
-			className="not-prose my-6 overflow-hidden rounded-lg border border-border"
+			className="not-typeset my-6 overflow-hidden rounded-lg border border-border"
 			data-code-block
 		>
 			<div className="flex items-center justify-between gap-3 border-b border-border bg-transparent px-3 py-2">
