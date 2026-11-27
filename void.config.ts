@@ -7,7 +7,7 @@ export default defineConfig({
 	},
 	cloudflare: {
 		name: 'mrboxs',
-		routes: [],
+		routes: [{ pattern: 'iamboxs.web.id', custom_domain: true }],
 		workers_dev: true,
 		preview_urls: true,
 	},

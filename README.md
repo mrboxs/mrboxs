@@ -16,5 +16,4 @@ graphic design, and music production.
 these days i'm learning JavaScript by building my portfolio and blog. breaking
 things and figuring out why is part of the fun.
 
-[Portfolio](https://mrboxs.isntboxs.workers.dev/) ·
-[Blog](https://mrboxs.isntboxs.workers.dev/blog)
+[Portfolio](https://iamboxs.web.id/) · [Blog](https://iamboxs.web.id/blog)
