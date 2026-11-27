@@ -1,6 +1,10 @@
 import { Link, useRouter } from '@tanstack/react-router'
 
-import type { ComponentPropsWithoutRef } from 'react'
+import type {
+	ComponentPropsWithoutRef,
+	ComponentPropsWithRef,
+	ReactElement,
+} from 'react'
 import { useState } from 'react'
 
 import { IconExternalLink } from '@tabler/icons-react'
@@ -9,6 +13,16 @@ import type { Element, ElementContent } from 'hast'
 
 import favicon from '#/assets/mrboxs-symbol.svg?url'
 import { markdownAssetUrl } from '#/components/markdown-renderer/asset'
+import {
+	canPreviewExternal,
+	ExternalLinkPreview,
+	InternalLinkPreview,
+} from '#/components/markdown-renderer/link-preview'
+import {
+	HoverCard,
+	HoverCardContent,
+	HoverCardTrigger,
+} from '#/components/ui/hover-card'
 import { contentLink } from '#/constants/model'
 import type { BlogPost } from '#/lib/blog'
 
@@ -54,7 +68,7 @@ export function ContentLink({
 		</>
 	)
 	if (!target.internal) {
-		return (
+		const link = (
 			<a
 				{...props}
 				href={target.url.href}
@@ -69,6 +83,7 @@ export function ContentLink({
 				<span className="sr-only"> (opens in a new tab)</span>
 			</a>
 		)
+		return <PreviewLink link={link} url={target.url} />
 	}
 	if (
 		target.url.pathname.startsWith('/api/') ||
@@ -84,10 +99,53 @@ export function ContentLink({
 		)
 	}
 
-	return (
+	const link = (
 		<InternalContentLink {...props} url={target.url}>
 			{linkContent}
 		</InternalContentLink>
+	)
+	return <PreviewLink link={link} url={target.url} internalSlug={slug} />
+}
+
+function PreviewLink({
+	link,
+	url,
+	internalSlug,
+}: {
+	link: ReactElement
+	url: URL
+	internalSlug?: string
+}) {
+	const { pathname, hash } = url
+	const internal = internalSlug !== undefined
+	if (internal) {
+		const sameArticle =
+			pathname.replace(/\/$/, '') ===
+			`/blog/${encodeURIComponent(internalSlug)}`
+		if (sameArticle && hash) return link
+		if (pathname !== '/' && !/^\/blog(?:\/[^/]+)?\/?$/.test(pathname)) {
+			return link
+		}
+	} else if (!canPreviewExternal(url)) {
+		return link
+	}
+
+	return (
+		<HoverCard>
+			<HoverCardTrigger render={link} delay={350} />
+			<HoverCardContent
+				align="start"
+				alignOffset={0}
+				sideOffset={8}
+				className="not-typeset w-72 max-w-[calc(100vw-2rem)] p-0 motion-reduce:animate-none"
+			>
+				{internal ? (
+					<InternalLinkPreview url={url} />
+				) : (
+					<ExternalLinkPreview url={url} />
+				)}
+			</HoverCardContent>
+		</HoverCard>
 	)
 }
 
@@ -122,7 +180,7 @@ function InternalContentLink({
 	url,
 	children,
 	...props
-}: Omit<ComponentPropsWithoutRef<'a'>, 'href'> & {
+}: Omit<ComponentPropsWithRef<'a'>, 'href'> & {
 	url: URL
 }) {
 	const router = useRouter()
