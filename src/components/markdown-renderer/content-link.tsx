@@ -132,7 +132,7 @@ function PreviewLink({
 
 	return (
 		<HoverCard>
-			<HoverCardTrigger render={link} delay={350} />
+			<HoverCardTrigger render={link} delay={350} data-slot={undefined} />
 			<HoverCardContent
 				align="start"
 				alignOffset={0}

@@ -116,6 +116,8 @@ describe('blog Markdown renderer', () => {
 			find<HTMLImageElement>('a[href="/blog/next"] img').getAttribute('src')
 		).toBe(favicon)
 		const external = find<HTMLAnchorElement>('a[href="https://example.com/"]')
+		expect(external.closest('[data-slot]')).toBeNull()
+		expect(find('a[href="/blog/next"]').closest('[data-slot]')).toBeNull()
 		expect(external.target).toBe('_blank')
 		expect(external.rel).toBe('noopener noreferrer')
 		expect(external.textContent).toContain('opens in a new tab')
