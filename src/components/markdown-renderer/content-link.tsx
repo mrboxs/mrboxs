@@ -105,7 +105,7 @@ function LinkFavicon({ src }: { src: string }) {
 			decoding="async"
 			referrerPolicy="no-referrer"
 			className={cn(
-				'not-prose me-1 inline-block size-4 object-contain align-[-0.125em]',
+				'not-typeset me-1 inline-block size-4 object-contain align-[-0.125em]',
 				src === favicon && 'dark:invert'
 			)}
 			ref={(element) => {

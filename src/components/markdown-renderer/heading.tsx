@@ -35,7 +35,7 @@ function headingTextLinks(children: ReactNode, id: string): ReactNode {
 		return (
 			<HeadingLink
 				id={id}
-				className="not-prose cursor-pointer rounded-sm text-inherit no-underline underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+				className="cursor-pointer rounded-sm text-inherit no-underline underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
 			>
 				{children}
 			</HeadingLink>
@@ -128,7 +128,7 @@ export function ContentHeading({
 				<HeadingLink
 					id={id}
 					label={`Link to ${label || id}`}
-					className="not-prose absolute -top-1 right-0 inline-flex size-11 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-100 group-focus-within/heading:opacity-100 group-hover/heading:opacity-100 hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:bg-muted md:[@media(hover:hover)]:opacity-0"
+					className="not-typeset absolute -top-1 right-0 inline-flex size-11 cursor-pointer items-center justify-center rounded-sm text-muted-foreground opacity-100 group-focus-within/heading:opacity-100 group-hover/heading:opacity-100 hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:bg-muted md:[@media(hover:hover)]:opacity-0"
 				>
 					<IconHash className="size-4" aria-hidden="true" />
 				</HeadingLink>

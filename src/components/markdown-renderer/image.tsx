@@ -141,7 +141,7 @@ function ImagePreview({
 				index={0}
 				type="button"
 				aria-label={`Enlarge image: ${label}`}
-				className="not-prose mx-auto block w-fit max-w-full cursor-zoom-in rounded-sm align-middle transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
+				className="not-typeset mx-auto block w-fit max-w-full cursor-zoom-in rounded-sm align-middle transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring motion-reduce:transition-none"
 			>
 				{({ imageRef }) =>
 					children((element) => {
@@ -150,7 +150,7 @@ function ImagePreview({
 					})
 				}
 			</LightboxTrigger>
-			<LightboxContent aria-label={label} className="not-prose">
+			<LightboxContent aria-label={label} className="not-typeset">
 				<LightboxSlides>
 					<LightboxSlide>
 						<LightboxItem index={0} caption={label} aria-label="Image 1 of 1">

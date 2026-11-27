@@ -43,7 +43,7 @@ export function ContentBlockquote({
 		>
 			<Icon aria-hidden="true" />
 			<AlertTitle>{title}</AlertTitle>
-			<AlertDescription className="[&>:first-child]:mt-0 [&>:last-child]:mb-0">
+			<AlertDescription className="[&_:is(ol,ul:not(.contains-task-list))]:ps-[1.5em] [&_ol]:list-decimal [&_ul:not(.contains-task-list)]:list-disc [&>:first-child]:mt-0 [&>:last-child]:mb-0">
 				{children}
 			</AlertDescription>
 		</Alert>

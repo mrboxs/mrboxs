@@ -191,6 +191,7 @@ function BlogDetailPage() {
 									</div>
 								)}
 								<MarkdownRenderer
+									className="typeset typeset-docs max-w-[37em]"
 									slug={post.slug}
 									content={post.body}
 									assets={post.assets}

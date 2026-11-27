@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import Markdown from 'react-markdown'
 import type { Components } from 'react-markdown'
 
+import { cn } from 'cn'
 import type { ElementContent } from 'hast'
 import remarkGfm from 'remark-gfm'
 
@@ -34,11 +35,13 @@ export function MarkdownRenderer({
 	content,
 	prepared = emptyPrepared,
 	assets = emptyAssets,
+	className,
 }: {
 	slug: string
 	content: string
 	prepared?: PreparedPublicContent
 	assets?: BlogPost['assets']
+	className?: string
 }) {
 	// React treats replacement renderers as component types; keep them stable on rerenders.
 	const components = useMemo<Components>(
@@ -149,7 +152,7 @@ export function MarkdownRenderer({
 	return (
 		<section
 			aria-label="Article content"
-			className="prose max-w-none min-w-0 wrap-anywhere prose-neutral dark:prose-invert prose-a:decoration-transparent prose-a:transition-[text-decoration-color] prose-a:duration-300 prose-a:ease-in-out prose-a:hover:decoration-current prose-a:motion-reduce:transition-none [&_[id]]:scroll-mt-24"
+			className={cn('min-w-0 wrap-anywhere [&_[id]]:scroll-mt-24', className)}
 		>
 			<Markdown
 				remarkPlugins={[remarkGfm, remarkArticleHeadings, remarkCallouts]}

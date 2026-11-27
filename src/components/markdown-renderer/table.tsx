@@ -22,7 +22,7 @@ export const markdownTableComponents: Pick<
 				'aria-label': 'Table',
 				tabIndex: 0,
 				className:
-					'not-prose my-6 rounded-lg border focus-visible:outline-2 focus-visible:outline-ring',
+					'not-typeset my-6 rounded-lg border focus-visible:outline-2 focus-visible:outline-ring',
 			}}
 		/>
 	),
