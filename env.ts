@@ -1,6 +1,6 @@
 import { defineEnv, string, url } from 'void/env'
 
-const defaultAppUrl = 'https://mrboxs.isntboxs.workers.dev'
+const defaultAppUrl = 'https://iamboxs.web.id'
 
 export default defineEnv({
 	GITHUB_BLOG_TOKEN: string().optional(),
