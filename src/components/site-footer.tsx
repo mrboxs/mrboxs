@@ -43,7 +43,7 @@ export function SiteFooter() {
 			<div className="relative isolate mx-auto max-w-3xl border-x border-line">
 				<div
 					aria-hidden="true"
-					className="stripe-divider relative h-12 [&::before]:[mask-image:linear-gradient(to_bottom,black_25%,transparent)]"
+					className="stripe-divider screen-line-bottom h-12 [&::before]:[mask-image:linear-gradient(to_bottom,black_25%,transparent)]"
 				/>
 				<div className="screen-line-bottom flex flex-col gap-2 px-4 pt-2 pb-3 sm:flex-row sm:items-end sm:justify-between">
 					<Link

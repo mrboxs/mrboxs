@@ -61,7 +61,7 @@ export function Blog() {
 			id="blog"
 			aria-labelledby="blog-title"
 			aria-busy={isPending}
-			className="screen-line-bottom screen-line-top relative isolate scroll-mt-14 border-x border-line"
+			className="screen-line-top relative isolate scroll-mt-14 border-x border-line"
 		>
 			<header className="screen-line-bottom px-4">
 				<h2
