@@ -35,7 +35,6 @@ function Home() {
 				<Projects />
 				<SectionSeparator />
 				<Blog />
-				<SectionSeparator />
 			</div>
 		</main>
 	)

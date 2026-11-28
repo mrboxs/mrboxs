@@ -203,13 +203,6 @@ function BlogDetailPage() {
 					</div>
 				</div>
 			</div>
-			<div
-				className="screen-line-bottom screen-line-top relative isolate mx-auto w-full max-w-3xl border-x border-line"
-				aria-hidden="true"
-				data-slot="article-end"
-			>
-				<div className="stripe-divider h-12" />
-			</div>
 		</main>
 	)
 }
