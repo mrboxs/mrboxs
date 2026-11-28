@@ -167,13 +167,6 @@ function BlogListPage() {
 					</div>
 					<div className="h-4" aria-hidden="true" />
 				</div>
-				<div
-					data-slot="blog-list-end"
-					aria-hidden="true"
-					className="screen-line-bottom screen-line-top relative isolate border-x border-line"
-				>
-					<div className="stripe-divider h-12" />
-				</div>
 			</div>
 		</main>
 	)

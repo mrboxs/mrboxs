@@ -10,6 +10,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
 import { PageError, PageNotFound } from '#/components/route-feedback'
+import { SiteFooter } from '#/components/site-footer'
 import { SiteHeader } from '#/components/site-header'
 import { ThemeFavicon } from '#/components/theme-favicon'
 import { ThemeProvider } from '#/components/theme-provider'
@@ -100,6 +101,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					<TooltipProvider>
 						<SiteHeader />
 						{children}
+						<SiteFooter />
 					</TooltipProvider>
 					<Toaster />
 				</ThemeProvider>

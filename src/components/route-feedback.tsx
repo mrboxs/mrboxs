@@ -7,7 +7,6 @@ import { ORPCError } from '@orpc/client'
 import { IconRefresh } from '@tabler/icons-react'
 import { cn } from 'cn'
 
-import { SectionSeparator } from '#/components/portfolio/dimensions'
 import { Button, buttonVariants } from '#/components/ui/button'
 import {
 	Card,
@@ -43,9 +42,6 @@ function PageFrame({
 			<div className="mx-auto flex min-h-[calc(100svh-3.5rem)] w-full max-w-3xl flex-col">
 				<div className="relative isolate flex flex-1 flex-col border-x border-line pt-12">
 					{children}
-				</div>
-				<div className="screen-line-bottom screen-line-top relative isolate">
-					<SectionSeparator />
 				</div>
 			</div>
 		</main>
