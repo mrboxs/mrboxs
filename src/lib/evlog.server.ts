@@ -7,6 +7,7 @@ import config, { orpcPrefixes } from '../../evlog.config'
 initLogger(toLoggerConfig(config))
 
 export { createWorkersLogger as requestLogger } from 'evlog/workers'
+export { EvlogError }
 
 export function isOrpcRequest(request: Request): boolean {
 	const { pathname } = new URL(request.url)
@@ -16,12 +17,10 @@ export function isOrpcRequest(request: Request): boolean {
 }
 
 export function structuredErrorResponse(
-	error: unknown,
-	log: RequestLogger
-): Response | undefined {
-	if (!EvlogError.isEvlogError(error)) return undefined
-
-	log.error(error)
+	error: EvlogError,
+	log?: RequestLogger
+): Response {
+	log?.error(error)
 	return Response.json(
 		{
 			message: error.message,

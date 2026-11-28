@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
+import type { WideEvent } from 'evlog'
+import {
+	enableDiagnosticsChannel,
+	subscribeToWideEvents,
+} from 'evlog/diagnostics'
 
 import { getPostBySlug, listPosts } from '#/lib/blog.server'
 import { openApiHandler, rpcHandler } from '#/orpc/handlers'
@@ -66,9 +71,39 @@ describe('configured oRPC handlers', () => {
 				new Request(`https://example.com/api/reference${path}`, { method }),
 				{ prefix: '/api/reference' }
 			)
-			if (!result.matched) throw new Error('Unmatched OpenAPI request')
 			expect(result.response.status).toBe(200)
 			expect(await result.response.json()).toEqual(expected)
+		}
+	})
+
+	it('includes an unmapped OpenAPI request and its structured 404 in one event', async () => {
+		const events: Array<WideEvent> = []
+		const stop = await enableDiagnosticsChannel()
+		const unsubscribe = await subscribeToWideEvents((event) =>
+			events.push(event)
+		)
+		try {
+			const { response } = await openApiHandler.handle(
+				new Request('https://example.com/api/reference/unmapped'),
+				{ prefix: '/api/reference' }
+			)
+
+			expect(response.status).toBe(404)
+			expect(response.headers.get('Cache-Control')).toBe('no-store')
+			expect(await response.json()).toMatchObject({
+				status: 404,
+				data: { code: 'OPENAPI_ROUTE_NOT_FOUND', link: '/api/reference' },
+			})
+			expect(events).toHaveLength(1)
+			expect(events[0]).toMatchObject({
+				action: 'openapi.request',
+				openapi: { matched: false },
+				status: 404,
+				error: { message: 'API endpoint not found' },
+			})
+		} finally {
+			unsubscribe()
+			stop()
 		}
 	})
 
@@ -77,7 +112,6 @@ describe('configured oRPC handlers', () => {
 			new Request('https://preview.example.test/api/reference/spec.json'),
 			{ prefix: '/api/reference' }
 		)
-		if (!result.matched) throw new Error('Unmatched specification request')
 		expect(result.response.status).toBe(200)
 		const spec = await result.response.json()
 		expect(spec).toMatchObject({

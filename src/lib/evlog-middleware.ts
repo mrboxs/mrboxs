@@ -23,9 +23,11 @@ export const evlogErrorHandler = createMiddleware()
 		try {
 			return await next()
 		} catch (error) {
-			const { structuredErrorResponse } = await import('#/lib/evlog.server')
-			const response = structuredErrorResponse(error, context.log)
-			if (response) return response
+			const { EvlogError, structuredErrorResponse } =
+				await import('#/lib/evlog.server')
+			if (EvlogError.isEvlogError(error)) {
+				return structuredErrorResponse(error, context.log)
+			}
 			throw error
 		}
 	})

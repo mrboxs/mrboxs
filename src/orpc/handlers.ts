@@ -7,10 +7,11 @@ import type { ORPCError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import { RPC_DEFAULT_ALLOW_METHODS } from '@orpc/server/standard'
 import { ZodToJsonSchemaConverter } from '@orpc/zod'
-import { toMiddlewareOptions } from 'evlog'
+import { createError, toMiddlewareOptions } from 'evlog'
 import { withEvlog } from 'evlog/orpc'
+import type { EvlogOrpcContext } from 'evlog/orpc'
 
-import '#/lib/evlog.server'
+import { structuredErrorResponse } from '#/lib/evlog.server'
 import { ERROR_STATUS_MAP } from '#/orpc/openapi-errors'
 import { routers } from '#/orpc/routers'
 
@@ -73,4 +74,31 @@ const openApi = new OpenAPIHandler(routers, {
 	},
 })
 
-export const openApiHandler = withEvlog(openApi, logging)
+export const openApiHandler = withEvlog(
+	{
+		async handle(
+			request: Request,
+			options?: { prefix?: `/${string}`; context?: Partial<EvlogOrpcContext> }
+		) {
+			const log = options?.context?.log
+			log?.set({ action: 'openapi.request' })
+			const result = await openApi.handle(request, options)
+			log?.set({ openapi: { matched: result.matched } })
+			if (result.matched) return result
+
+			const error = createError({
+				status: 404,
+				code: 'OPENAPI_ROUTE_NOT_FOUND',
+				message: 'API endpoint not found',
+				why: 'No API reference endpoint matches this request.',
+				fix: 'Check the path and HTTP method in the API reference.',
+				link: '/api/reference',
+			})
+			return {
+				matched: true as const,
+				response: structuredErrorResponse(error, log),
+			}
+		},
+	},
+	logging
+)
