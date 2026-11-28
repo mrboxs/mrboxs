@@ -18,6 +18,7 @@ import { ThemeProvider } from '#/components/theme-provider'
 import { Toaster } from '#/components/ui/toast'
 import { TooltipProvider } from '#/components/ui/tooltip'
 import TanStackQueryDevtools from '#/integrations/tanstack-query/devtools'
+import { evlogErrorHandler } from '#/lib/evlog-middleware'
 import { unavailableHead } from '#/lib/seo'
 import type { orpc } from '#/orpc/client'
 import appCss from '#/styles.css?url'
@@ -28,6 +29,7 @@ interface MyRouterContext {
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+	server: { middleware: [evlogErrorHandler] },
 	head: () => ({
 		...unavailableHead(),
 		meta: [
