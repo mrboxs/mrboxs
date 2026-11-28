@@ -7,19 +7,29 @@ import type { ORPCError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import { RPC_DEFAULT_ALLOW_METHODS } from '@orpc/server/standard'
 import { ZodToJsonSchemaConverter } from '@orpc/zod'
+import { toMiddlewareOptions } from 'evlog'
+import { withEvlog } from 'evlog/orpc'
 
+import '#/lib/evlog.server'
 import { ERROR_STATUS_MAP } from '#/orpc/openapi-errors'
 import { routers } from '#/orpc/routers'
 
-export const rpcHandler = new RPCHandler(routers, {
-	allowMethods: ['QUERY', ...RPC_DEFAULT_ALLOW_METHODS],
-})
+import config from '../../evlog.config'
+
+const logging = toMiddlewareOptions(config)
+
+export const rpcHandler = withEvlog(
+	new RPCHandler(routers, {
+		allowMethods: ['QUERY', ...RPC_DEFAULT_ALLOW_METHODS],
+	}),
+	logging
+)
 
 const generator = new OpenAPIGenerator({
 	converters: [new ZodToJsonSchemaConverter()],
 })
 
-export const openApiHandler = new OpenAPIHandler(routers, {
+const openApi = new OpenAPIHandler(routers, {
 	errorStatusMap: ERROR_STATUS_MAP,
 	// Expose only explicitly mapped REST procedures. RPC-only compatibility
 	// procedures must not acquire fallback paths in the matcher or reference.
@@ -62,3 +72,5 @@ export const openApiHandler = new OpenAPIHandler(routers, {
 		}
 	},
 })
+
+export const openApiHandler = withEvlog(openApi, logging)

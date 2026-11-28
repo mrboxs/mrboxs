@@ -2,8 +2,9 @@ import { createMiddleware } from '@tanstack/react-start'
 
 export const evlogRequest = createMiddleware().server(
 	async ({ request, next }) => {
-		const { requestLogger } = await import('#/lib/evlog.server')
+		const { isOrpcRequest, requestLogger } = await import('#/lib/evlog.server')
 		const log = requestLogger(request)
+		if (isOrpcRequest(request)) return next({ context: { log } })
 
 		try {
 			const result = await next({ context: { log } })

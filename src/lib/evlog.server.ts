@@ -1,13 +1,19 @@
 import '@tanstack/react-start/server-only'
-import { EvlogError, toLoggerConfig } from 'evlog'
+import { EvlogError, initLogger, toLoggerConfig } from 'evlog'
 import type { RequestLogger } from 'evlog'
-import { initWorkersLogger } from 'evlog/workers'
 
-import config from '../../evlog.config'
+import config, { orpcPrefixes } from '../../evlog.config'
 
-initWorkersLogger(toLoggerConfig(config))
+initLogger(toLoggerConfig(config))
 
 export { createWorkersLogger as requestLogger } from 'evlog/workers'
+
+export function isOrpcRequest(request: Request): boolean {
+	const { pathname } = new URL(request.url)
+	return orpcPrefixes.some(
+		(prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+	)
+}
 
 export function structuredErrorResponse(
 	error: unknown,
