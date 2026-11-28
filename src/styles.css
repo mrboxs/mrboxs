@@ -5,6 +5,11 @@
 @import '@fontsource-variable/geist';
 @import '@fontsource-variable/geist-mono';
 @import '@fontsource/caveat/latin-400.css';
+@import 'nprogress/nprogress.css';
+
+#nprogress .bar {
+	background: var(--foreground);
+}
 
 .typeset-docs {
 	--typeset-font-body: var(--font-geist);

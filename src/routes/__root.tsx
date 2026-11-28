@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 
+import { NavigationProgress } from '#/components/navigation-progress'
 import { PageError, PageNotFound } from '#/components/route-feedback'
 import { SiteFooter } from '#/components/site-footer'
 import { SiteHeader } from '#/components/site-header'
@@ -99,6 +100,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				>
 					<ThemeFavicon />
 					<TooltipProvider>
+						<NavigationProgress />
 						<SiteHeader />
 						{children}
 						<SiteFooter />
