@@ -125,6 +125,10 @@ describe('blog oRPC router', () => {
 			expect(await response.json()).toMatchObject({
 				code: 'NOT_FOUND',
 				message: ORPC_ERRORS.NOT_FOUND.message,
+				data: {
+					why: 'The article is missing or unpublished.',
+					link: '/blog',
+				},
 			})
 		}
 	})

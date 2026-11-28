@@ -7,19 +7,30 @@ import type { ORPCError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import { RPC_DEFAULT_ALLOW_METHODS } from '@orpc/server/standard'
 import { ZodToJsonSchemaConverter } from '@orpc/zod'
+import { createError, toMiddlewareOptions } from 'evlog'
+import { withEvlog } from 'evlog/orpc'
+import type { EvlogOrpcContext } from 'evlog/orpc'
 
+import { structuredErrorResponse } from '#/lib/evlog.server'
 import { ERROR_STATUS_MAP } from '#/orpc/openapi-errors'
 import { routers } from '#/orpc/routers'
 
-export const rpcHandler = new RPCHandler(routers, {
-	allowMethods: ['QUERY', ...RPC_DEFAULT_ALLOW_METHODS],
-})
+import config from '../../evlog.config'
+
+const logging = toMiddlewareOptions(config)
+
+export const rpcHandler = withEvlog(
+	new RPCHandler(routers, {
+		allowMethods: ['QUERY', ...RPC_DEFAULT_ALLOW_METHODS],
+	}),
+	logging
+)
 
 const generator = new OpenAPIGenerator({
 	converters: [new ZodToJsonSchemaConverter()],
 })
 
-export const openApiHandler = new OpenAPIHandler(routers, {
+const openApi = new OpenAPIHandler(routers, {
 	errorStatusMap: ERROR_STATUS_MAP,
 	// Expose only explicitly mapped REST procedures. RPC-only compatibility
 	// procedures must not acquire fallback paths in the matcher or reference.
@@ -62,3 +73,32 @@ export const openApiHandler = new OpenAPIHandler(routers, {
 		}
 	},
 })
+
+export const openApiHandler = withEvlog(
+	{
+		async handle(
+			request: Request,
+			options?: { prefix?: `/${string}`; context?: Partial<EvlogOrpcContext> }
+		) {
+			const log = options?.context?.log
+			log?.set({ action: 'openapi.request' })
+			const result = await openApi.handle(request, options)
+			log?.set({ openapi: { matched: result.matched } })
+			if (result.matched) return result
+
+			const error = createError({
+				status: 404,
+				code: 'OPENAPI_ROUTE_NOT_FOUND',
+				message: 'API endpoint not found',
+				why: 'No API reference endpoint matches this request.',
+				fix: 'Check the path and HTTP method in the API reference.',
+				link: '/api/reference',
+			})
+			return {
+				matched: true as const,
+				response: structuredErrorResponse(error, log),
+			}
+		},
+	},
+	logging
+)
